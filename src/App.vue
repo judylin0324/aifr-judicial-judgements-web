@@ -163,17 +163,21 @@ function buildApiParams() {
     if (a.lawyer?.length) p.lawyer = a.lawyer.join(',')
     if (a.amount?.length) p.amount = a.amount.join(',')
     if (a.national_comp?.length) p.national_comp = a.national_comp[0]
+    if (a.countersuit?.length) p.countersuit = a.countersuit[0]
+    if (a.appeal?.length) p.appeal = a.appeal[0]
   } else if (activeType.value === 'civil_nonlitig') {
     if (a.court?.length) p.court = a.court.join(',')
     if (a.ending?.length) p.ending = a.ending.join(',')
     if (a.cause?.length) p.cause = a.cause.join(',')
     if (a.is_debt?.length) p.is_debt = a.is_debt[0]
+    if (a.applicant?.length) p.applicant = a.applicant.join(',')
   } else if (activeType.value === 'family_litigation') {
     if (a.court?.length) p.court = a.court.join(',')
     if (a.ending?.length) p.ending = a.ending.join(',')
     if (a.cause?.length) p.cause = a.cause.join(',')
     if (a.lawyer?.length) p.lawyer = a.lawyer.join(',')
     if (a.initiator?.length) p.initiator = a.initiator.join(',')
+    if (a.divorce_reason?.length) p.divorce_reason = a.divorce_reason.join(',')
   }
   if (a.ym_min) p.ym_min = a.ym_min
   if (a.ym_max) p.ym_max = a.ym_max
@@ -251,6 +255,8 @@ const filterSections = computed(() => {
       { title: '當事人資訊', color: 'orange', items: [
         { key: 'lawyer', label: '律師代理情形', options: opts.lawyers || [] },
         { key: 'amount', label: '訴訟標的金額級距', options: opts.amounts || [] },
+        { key: 'countersuit', label: '是否反訴', options: opts.countersuits || [] },
+        { key: 'appeal', label: '可否上訴', options: opts.appeals || [] },
       ]},
     ]
   }
@@ -262,6 +268,7 @@ const filterSections = computed(() => {
         { key: 'ending', label: '終結情形', options: opts.endings || [] },
         { key: 'cause', label: '案由大分類', options: opts.causes || [] },
         { key: 'is_debt', label: '消債事件', options: opts.isDebt || [] },
+        { key: 'applicant', label: '聲請人別', options: opts.applicants || [] },
       ]},
     ]
   }
@@ -276,6 +283,7 @@ const filterSections = computed(() => {
       { title: '當事人資訊', color: 'orange', items: [
         { key: 'lawyer', label: '律師代理情形', options: opts.lawyers || [] },
         { key: 'initiator', label: '主動離婚者', options: opts.initiators || [] },
+        { key: 'divorce_reason', label: '離婚原因', options: opts.divorceReasons || [] },
       ]},
     ]
   }
@@ -299,17 +307,31 @@ const statCards = computed(() => {
       { l: '犯罪法條總數', v: s.uniqueLaws, a: '#35B679' },
     ]
   }
-  if (t === 'civil_litigation' || t === 'civil_nonlitig') {
-    return [
+  if (t === 'civil_litigation') {
+    const cards = [
       { l: '裁判書（篇數）', v: s.judgments, a: '#4F86F7' },
       { l: '資料筆數', v: s.totalRows, a: '#F28C52' },
     ]
+    if (s.avgAmount != null) cards.push({ l: '平均訴訟標的金額', v: Math.round(s.avgAmount).toLocaleString() + ' 元', a: '#D9A93A', raw: true })
+    if (s.lawyerRate != null) cards.push({ l: '律師代理率', v: s.lawyerRate + '%', a: '#35B679', raw: true })
+    return cards
+  }
+  if (t === 'civil_nonlitig') {
+    const cards = [
+      { l: '裁判書（篇數）', v: s.judgments, a: '#4F86F7' },
+      { l: '資料筆數', v: s.totalRows, a: '#F28C52' },
+    ]
+    if (s.debtRate != null) cards.push({ l: '消債事件比率', v: s.debtRate + '%', a: '#D9A93A', raw: true })
+    return cards
   }
   if (t === 'family_litigation') {
-    return [
+    const cards = [
       { l: '裁判書（篇數）', v: s.judgments, a: '#4F86F7' },
       { l: '資料筆數', v: s.totalRows, a: '#F28C52' },
     ]
+    if (s.divorceRate != null) cards.push({ l: '離婚案比率', v: s.divorceRate + '%', a: '#D9A93A', raw: true })
+    if (s.lawyerRate != null) cards.push({ l: '律師代理率', v: s.lawyerRate + '%', a: '#35B679', raw: true })
+    return cards
   }
   return []
 })
@@ -424,6 +446,72 @@ const criminalBoxSvg = computed(() => {
   const m = currentMetric.value
   if (!m?.box?.length) return null
   return boxSvgData(m.box, selectedMetric.value, METRIC_AXIS[selectedMetric.value])
+})
+
+// ═══════════════════════════════════════════════════════════
+//  Section 10b — NEW Computed Chart SVGs for Civil/NonLitig/Family
+// ═══════════════════════════════════════════════════════════
+const stackColors = ['#4F86F7', '#F28C52', '#35B679', '#D9A93A', '#7c3aed', '#e11d48', '#06b6d4', '#84cc16', '#a855f7', '#f97316']
+
+function genericStackSvg(chartData) {
+  if (!chartData?.data?.length || !chartData?.segments?.length) return { W: 0, H: 0, rows: [] }
+  const LM = 130, RM = 80, TM = 10, rowH = 32
+  const W = 600, H = TM + rowH * chartData.data.length + 30
+  const barW = W - LM - RM
+  const rows = chartData.data.map((d, idx) => {
+    const y = TM + rowH * idx
+    let accX = LM
+    const bars = chartData.segments.map((seg, si) => {
+      const tenths = d[seg] || 0
+      const w = (tenths / 1000) * barW
+      const x = accX; accX += w
+      return { x, w, segment: seg, color: stackColors[si % stackColors.length], tenths, count: d.__counts?.[seg] || 0 }
+    })
+    return { label: d.name, y, bars, total: d.__total || 0 }
+  })
+  return { W, H, rows }
+}
+
+// Civil Litigation stacked bars
+const civilCauseStackSvg = computed(() => genericStackSvg(dashData.value?.charts?.causeEndingStack))
+const civilLawyerStackSvg = computed(() => genericStackSvg(dashData.value?.charts?.lawyerEndingStack))
+
+// Non-litigation stacked bar
+const nonlitigCauseStackSvg = computed(() => genericStackSvg(dashData.value?.charts?.causeEndingStack))
+
+// Family stacked bars
+const familyCauseStackSvg = computed(() => genericStackSvg(dashData.value?.charts?.causeEndingStack))
+const familyLawyerStackSvg = computed(() => genericStackSvg(dashData.value?.charts?.lawyerEndingStack))
+
+// Civil Amount Box-Whisker
+const civilAmountBoxSvg = computed(() => {
+  const boxData = dashData.value?.charts?.amountBox
+  if (!boxData?.length) return { W: 0, H: 0, items: [], gridLines: [] }
+  const LM = 130, RM = 30, TM = 20, rowH = 40
+  const W = 600, H = TM + rowH * boxData.length + 40
+  const plotW = W - LM - RM
+  const maxVal = Math.max(...boxData.map(d => Math.max(d.whiskerHigh || 0, d.max || 0)), 1)
+  const niceMax = Math.ceil(maxVal / Math.pow(10, Math.floor(Math.log10(maxVal)))) * Math.pow(10, Math.floor(Math.log10(maxVal)))
+  const xS = v => LM + (Math.max(0, v) / niceMax) * plotW
+  const step = niceMax / 5
+  const gridLines = Array.from({ length: 6 }, (_, i) => {
+    const v = step * i
+    return { x: xS(v), label: v >= 10000 ? (v / 10000).toFixed(0) + '萬' : v.toLocaleString() }
+  })
+  const items = boxData.map((d, idx) => {
+    const y = TM + rowH * idx + rowH / 2
+    return {
+      label: d.cause, y,
+      labelX: LM - 6,
+      whiskerLX: xS(d.whiskerLow || 0),
+      whiskerHX: xS(d.whiskerHigh || 0),
+      q1X: xS(d.q1 || 0),
+      boxW: xS(d.q3 || 0) - xS(d.q1 || 0),
+      medianX: xS(d.median || 0),
+      medLabel: (d.median || 0) >= 10000 ? ((d.median || 0) / 10000).toFixed(1) + '萬' : Math.round(d.median || 0).toLocaleString(),
+    }
+  })
+  return { W, H, items, gridLines }
 })
 
 // ═══════════════════════════════════════════════════════════
@@ -599,7 +687,7 @@ onMounted(async () => {
           <div v-for="s in statCards" :key="s.l" class="stat-card">
             <div class="stat-accent" :style="{ background: s.a }"></div>
             <div class="stat-label">{{ s.l }}</div>
-            <div class="stat-value">{{ (s.v || 0).toLocaleString() }}</div>
+            <div class="stat-value">{{ s.raw ? s.v : (s.v || 0).toLocaleString() }}</div>
           </div>
         </div>
 
@@ -807,6 +895,100 @@ onMounted(async () => {
                 </table>
               </div>
             </div>
+
+            <!-- NEW: Cause × Ending Stacked Bar -->
+            <div class="chart-card">
+              <div class="chart-title">案由 × 終結情形堆疊圖</div>
+              <div class="chart-sub">各案由的終結情形比例分布</div>
+              <div v-if="!dashData.charts.causeEndingStack?.data?.length" class="no-data">無資料</div>
+              <template v-else>
+                <div style="overflow-x:auto">
+                  <svg :width="civilCauseStackSvg.W" :height="civilCauseStackSvg.H" class="chart-svg">
+                    <template v-for="(r, ri) in civilCauseStackSvg.rows" :key="ri">
+                      <text :x="124" :y="r.y + 20" text-anchor="end" font-size="11" fill="#374151" font-weight="500">{{ r.label }}</text>
+                      <rect v-for="(b, bi) in r.bars" :key="bi" :x="b.x" :y="r.y + 4" :width="b.w || 1" height="24" :fill="b.color" rx="0" opacity="0.85">
+                        <title>{{ b.segment }}：{{ b.count }} 件（{{ fmtPctTenths(b.tenths) }}）</title>
+                      </rect>
+                      <text :x="r.bars[r.bars.length-1]?.x + (r.bars[r.bars.length-1]?.w||0) + 6" :y="r.y + 20" font-size="10" fill="#374151" font-weight="600">{{ r.total.toLocaleString() }} 件</text>
+                    </template>
+                  </svg>
+                </div>
+                <div class="legend-row" style="margin-top:8px">
+                  <div v-for="(seg, si) in dashData.charts.causeEndingStack.segments" :key="si" class="legend-item">
+                    <span class="legend-dot" :style="{ background: stackColors[si % stackColors.length] }"></span>{{ seg }}
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <!-- NEW: Lawyer × Ending Stacked Bar -->
+            <div class="chart-card">
+              <div class="chart-title">律師代理 × 終結情形堆疊圖</div>
+              <div class="chart-sub">不同律師代理情形的終結結果比例</div>
+              <div v-if="!dashData.charts.lawyerEndingStack?.data?.length" class="no-data">無資料</div>
+              <template v-else>
+                <div style="overflow-x:auto">
+                  <svg :width="civilLawyerStackSvg.W" :height="civilLawyerStackSvg.H" class="chart-svg">
+                    <template v-for="(r, ri) in civilLawyerStackSvg.rows" :key="ri">
+                      <text :x="124" :y="r.y + 20" text-anchor="end" font-size="11" fill="#374151" font-weight="500">{{ r.label }}</text>
+                      <rect v-for="(b, bi) in r.bars" :key="bi" :x="b.x" :y="r.y + 4" :width="b.w || 1" height="24" :fill="b.color" rx="0" opacity="0.85">
+                        <title>{{ b.segment }}：{{ b.count }} 件（{{ fmtPctTenths(b.tenths) }}）</title>
+                      </rect>
+                      <text :x="r.bars[r.bars.length-1]?.x + (r.bars[r.bars.length-1]?.w||0) + 6" :y="r.y + 20" font-size="10" fill="#374151" font-weight="600">{{ r.total.toLocaleString() }} 件</text>
+                    </template>
+                  </svg>
+                </div>
+                <div class="legend-row" style="margin-top:8px">
+                  <div v-for="(seg, si) in dashData.charts.lawyerEndingStack.segments" :key="si" class="legend-item">
+                    <span class="legend-dot" :style="{ background: stackColors[si % stackColors.length] }"></span>{{ seg }}
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <!-- NEW: Court × Ending Heatmap -->
+            <div class="chart-card">
+              <div class="chart-title">法院 × 終結情形熱度圖</div>
+              <div class="chart-sub">各法院終結結果交叉分析</div>
+              <div v-if="!dashData.charts.courtHeatmap?.xLabels?.length" class="no-data">無資料</div>
+              <div v-else style="overflow-x:auto">
+                <table class="heatmap">
+                  <thead><tr><th style="width:100px"></th><th v-for="x in dashData.charts.courtHeatmap.xLabels" :key="x">{{ x }}</th></tr></thead>
+                  <tbody>
+                    <tr v-for="(y, yi) in dashData.charts.courtHeatmap.yLabels" :key="y">
+                      <td class="hm-label">{{ y }}</td>
+                      <td v-for="(x, xi) in dashData.charts.courtHeatmap.xLabels" :key="x"
+                        :style="{ background: `rgba(124,58,237,${0.08 + (dashData.charts.courtHeatmap.matrix[yi][xi] / (dashData.charts.courtHeatmap.max || 1)) * 0.82})`, color: (dashData.charts.courtHeatmap.matrix[yi][xi] / (dashData.charts.courtHeatmap.max || 1)) > 0.5 ? '#fff' : '#111827' }"
+                        class="hm-cell">{{ dashData.charts.courtHeatmap.matrix[yi][xi] }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- NEW: Amount Box-Whisker -->
+            <div class="chart-card">
+              <div class="chart-title">訴訟標的金額盒鬚圖</div>
+              <div class="chart-sub">各案由的金額分布（中位數、四分位距）</div>
+              <div v-if="!dashData.charts.amountBox?.length" class="no-data">無資料</div>
+              <template v-else>
+                <div style="overflow-x:auto">
+                  <svg :width="civilAmountBoxSvg.W" :height="civilAmountBoxSvg.H" class="chart-svg">
+                    <line v-for="gl in civilAmountBoxSvg.gridLines" :key="gl.x" :x1="gl.x" :x2="gl.x" :y1="10" :y2="civilAmountBoxSvg.H - 20" stroke="#e5e7eb" stroke-width="1" />
+                    <text v-for="gl in civilAmountBoxSvg.gridLines" :key="'t'+gl.x" :x="gl.x" :y="civilAmountBoxSvg.H - 6" text-anchor="middle" font-size="9" fill="#9ca3af">{{ gl.label }}</text>
+                    <template v-for="(d, di) in civilAmountBoxSvg.items" :key="di">
+                      <text :x="d.labelX" :y="d.y + 4" text-anchor="end" font-size="11" fill="#374151" font-weight="500">{{ d.label }}</text>
+                      <line :x1="d.whiskerLX" :x2="d.whiskerHX" :y1="d.y" :y2="d.y" stroke="#111827" stroke-width="1.5" />
+                      <line :x1="d.whiskerLX" :x2="d.whiskerLX" :y1="d.y - 8" :y2="d.y + 8" stroke="#111827" stroke-width="1.5" />
+                      <line :x1="d.whiskerHX" :x2="d.whiskerHX" :y1="d.y - 8" :y2="d.y + 8" stroke="#111827" stroke-width="1.5" />
+                      <rect :x="d.q1X" :y="d.y - 12" :width="Math.max(2, d.boxW)" height="24" rx="4" fill="#4F86F7" opacity="0.75" stroke="#111827" stroke-width="1" />
+                      <line :x1="d.medianX" :x2="d.medianX" :y1="d.y - 12" :y2="d.y + 12" stroke="#111827" stroke-width="2.4" />
+                      <text :x="d.medianX" :y="d.y - 16" text-anchor="middle" font-size="9" fill="#111827" font-weight="700">{{ d.medLabel }}</text>
+                    </template>
+                  </svg>
+                </div>
+              </template>
+            </div>
           </div>
         </template>
 
@@ -884,6 +1066,89 @@ onMounted(async () => {
                   </div>
                 </div>
               </div>
+            </div>
+
+            <!-- NEW: Cause × Ending Stacked Bar -->
+            <div class="chart-card">
+              <div class="chart-title">案由 × 終結情形堆疊圖</div>
+              <div class="chart-sub">各案由的終結情形比例分布</div>
+              <div v-if="!dashData.charts.causeEndingStack?.data?.length" class="no-data">無資料</div>
+              <template v-else>
+                <div style="overflow-x:auto">
+                  <svg :width="nonlitigCauseStackSvg.W" :height="nonlitigCauseStackSvg.H" class="chart-svg">
+                    <template v-for="(r, ri) in nonlitigCauseStackSvg.rows" :key="ri">
+                      <text :x="124" :y="r.y + 20" text-anchor="end" font-size="11" fill="#374151" font-weight="500">{{ r.label }}</text>
+                      <rect v-for="(b, bi) in r.bars" :key="bi" :x="b.x" :y="r.y + 4" :width="b.w || 1" height="24" :fill="b.color" rx="0" opacity="0.85">
+                        <title>{{ b.segment }}：{{ b.count }} 件（{{ fmtPctTenths(b.tenths) }}）</title>
+                      </rect>
+                      <text :x="r.bars[r.bars.length-1]?.x + (r.bars[r.bars.length-1]?.w||0) + 6" :y="r.y + 20" font-size="10" fill="#374151" font-weight="600">{{ r.total.toLocaleString() }} 件</text>
+                    </template>
+                  </svg>
+                </div>
+                <div class="legend-row" style="margin-top:8px">
+                  <div v-for="(seg, si) in dashData.charts.causeEndingStack.segments" :key="si" class="legend-item">
+                    <span class="legend-dot" :style="{ background: stackColors[si % stackColors.length] }"></span>{{ seg }}
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <!-- NEW: Court × Ending Heatmap -->
+            <div class="chart-card">
+              <div class="chart-title">法院 × 終結情形熱度圖</div>
+              <div class="chart-sub">各法院終結結果交叉分析</div>
+              <div v-if="!dashData.charts.courtHeatmap?.xLabels?.length" class="no-data">無資料</div>
+              <div v-else style="overflow-x:auto">
+                <table class="heatmap">
+                  <thead><tr><th style="width:100px"></th><th v-for="x in dashData.charts.courtHeatmap.xLabels" :key="x">{{ x }}</th></tr></thead>
+                  <tbody>
+                    <tr v-for="(y, yi) in dashData.charts.courtHeatmap.yLabels" :key="y">
+                      <td class="hm-label">{{ y }}</td>
+                      <td v-for="(x, xi) in dashData.charts.courtHeatmap.xLabels" :key="x"
+                        :style="{ background: `rgba(53,182,121,${0.08 + (dashData.charts.courtHeatmap.matrix[yi][xi] / (dashData.charts.courtHeatmap.max || 1)) * 0.82})`, color: (dashData.charts.courtHeatmap.matrix[yi][xi] / (dashData.charts.courtHeatmap.max || 1)) > 0.5 ? '#fff' : '#111827' }"
+                        class="hm-cell">{{ dashData.charts.courtHeatmap.matrix[yi][xi] }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- NEW: Debt × Ending Heatmap -->
+            <div class="chart-card">
+              <div class="chart-title">消債事件 × 終結情形熱度圖</div>
+              <div class="chart-sub">消債與非消債案件終結結果交叉分析</div>
+              <div v-if="!dashData.charts.debtEndingHeatmap?.xLabels?.length" class="no-data">無資料</div>
+              <div v-else style="overflow-x:auto">
+                <table class="heatmap">
+                  <thead><tr><th style="width:100px"></th><th v-for="x in dashData.charts.debtEndingHeatmap.xLabels" :key="x">{{ x }}</th></tr></thead>
+                  <tbody>
+                    <tr v-for="(y, yi) in dashData.charts.debtEndingHeatmap.yLabels" :key="y">
+                      <td class="hm-label">{{ y }}</td>
+                      <td v-for="(x, xi) in dashData.charts.debtEndingHeatmap.xLabels" :key="x"
+                        :style="{ background: `rgba(217,169,58,${0.08 + (dashData.charts.debtEndingHeatmap.matrix[yi][xi] / (dashData.charts.debtEndingHeatmap.max || 1)) * 0.82})`, color: (dashData.charts.debtEndingHeatmap.matrix[yi][xi] / (dashData.charts.debtEndingHeatmap.max || 1)) > 0.5 ? '#fff' : '#111827' }"
+                        class="hm-cell">{{ dashData.charts.debtEndingHeatmap.matrix[yi][xi] }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- NEW: Applicant Distribution -->
+            <div class="chart-card">
+              <div class="chart-title">聲請人別分布</div>
+              <div class="chart-sub">各類聲請人件數</div>
+              <div v-if="!dashData.charts.applicantDist?.length" class="no-data">無資料</div>
+              <template v-else>
+                <svg v-bind="barChartAttrs(dashData.charts.applicantDist)" preserveAspectRatio="xMinYMin meet">
+                  <template v-for="(r, ri) in barChartRows(dashData.charts.applicantDist)" :key="ri">
+                    <text :x="134" :y="r.y + 18" text-anchor="end" font-size="11" fill="#374151" font-weight="500">{{ r.label }}</text>
+                    <rect :x="140" :y="r.y + 4" :width="Math.max(2, r.w)" height="20" fill="#7c3aed" rx="3" opacity="0.85">
+                      <title>{{ r.label }}：{{ r.count }} 件（{{ r.pct }}%）</title>
+                    </rect>
+                    <text :x="144 + r.w" :y="r.y + 18" font-size="10" fill="#374151" font-weight="600">{{ r.count.toLocaleString() }}（{{ r.pct }}%）</text>
+                  </template>
+                </svg>
+              </template>
             </div>
           </div>
         </template>
@@ -974,6 +1239,96 @@ onMounted(async () => {
                     <span class="divorce-count">{{ item.count.toLocaleString() }}</span>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            <!-- NEW: Cause × Ending Stacked Bar -->
+            <div class="chart-card">
+              <div class="chart-title">案由 × 終結情形堆疊圖</div>
+              <div class="chart-sub">各案由的終結情形比例分布</div>
+              <div v-if="!dashData.charts.causeEndingStack?.data?.length" class="no-data">無資料</div>
+              <template v-else>
+                <div style="overflow-x:auto">
+                  <svg :width="familyCauseStackSvg.W" :height="familyCauseStackSvg.H" class="chart-svg">
+                    <template v-for="(r, ri) in familyCauseStackSvg.rows" :key="ri">
+                      <text :x="124" :y="r.y + 20" text-anchor="end" font-size="11" fill="#374151" font-weight="500">{{ r.label }}</text>
+                      <rect v-for="(b, bi) in r.bars" :key="bi" :x="b.x" :y="r.y + 4" :width="b.w || 1" height="24" :fill="b.color" rx="0" opacity="0.85">
+                        <title>{{ b.segment }}：{{ b.count }} 件（{{ fmtPctTenths(b.tenths) }}）</title>
+                      </rect>
+                      <text :x="r.bars[r.bars.length-1]?.x + (r.bars[r.bars.length-1]?.w||0) + 6" :y="r.y + 20" font-size="10" fill="#374151" font-weight="600">{{ r.total.toLocaleString() }} 件</text>
+                    </template>
+                  </svg>
+                </div>
+                <div class="legend-row" style="margin-top:8px">
+                  <div v-for="(seg, si) in dashData.charts.causeEndingStack.segments" :key="si" class="legend-item">
+                    <span class="legend-dot" :style="{ background: stackColors[si % stackColors.length] }"></span>{{ seg }}
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <!-- NEW: Lawyer × Ending Stacked Bar -->
+            <div class="chart-card">
+              <div class="chart-title">律師代理 × 終結情形堆疊圖</div>
+              <div class="chart-sub">不同律師代理情形的終結結果比例</div>
+              <div v-if="!dashData.charts.lawyerEndingStack?.data?.length" class="no-data">無資料</div>
+              <template v-else>
+                <div style="overflow-x:auto">
+                  <svg :width="familyLawyerStackSvg.W" :height="familyLawyerStackSvg.H" class="chart-svg">
+                    <template v-for="(r, ri) in familyLawyerStackSvg.rows" :key="ri">
+                      <text :x="124" :y="r.y + 20" text-anchor="end" font-size="11" fill="#374151" font-weight="500">{{ r.label }}</text>
+                      <rect v-for="(b, bi) in r.bars" :key="bi" :x="b.x" :y="r.y + 4" :width="b.w || 1" height="24" :fill="b.color" rx="0" opacity="0.85">
+                        <title>{{ b.segment }}：{{ b.count }} 件（{{ fmtPctTenths(b.tenths) }}）</title>
+                      </rect>
+                      <text :x="r.bars[r.bars.length-1]?.x + (r.bars[r.bars.length-1]?.w||0) + 6" :y="r.y + 20" font-size="10" fill="#374151" font-weight="600">{{ r.total.toLocaleString() }} 件</text>
+                    </template>
+                  </svg>
+                </div>
+                <div class="legend-row" style="margin-top:8px">
+                  <div v-for="(seg, si) in dashData.charts.lawyerEndingStack.segments" :key="si" class="legend-item">
+                    <span class="legend-dot" :style="{ background: stackColors[si % stackColors.length] }"></span>{{ seg }}
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <!-- NEW: Court × Ending Heatmap -->
+            <div class="chart-card">
+              <div class="chart-title">法院 × 終結情形熱度圖</div>
+              <div class="chart-sub">各法院終結結果交叉分析</div>
+              <div v-if="!dashData.charts.courtHeatmap?.xLabels?.length" class="no-data">無資料</div>
+              <div v-else style="overflow-x:auto">
+                <table class="heatmap">
+                  <thead><tr><th style="width:100px"></th><th v-for="x in dashData.charts.courtHeatmap.xLabels" :key="x">{{ x }}</th></tr></thead>
+                  <tbody>
+                    <tr v-for="(y, yi) in dashData.charts.courtHeatmap.yLabels" :key="y">
+                      <td class="hm-label">{{ y }}</td>
+                      <td v-for="(x, xi) in dashData.charts.courtHeatmap.xLabels" :key="x"
+                        :style="{ background: `rgba(124,58,237,${0.08 + (dashData.charts.courtHeatmap.matrix[yi][xi] / (dashData.charts.courtHeatmap.max || 1)) * 0.82})`, color: (dashData.charts.courtHeatmap.matrix[yi][xi] / (dashData.charts.courtHeatmap.max || 1)) > 0.5 ? '#fff' : '#111827' }"
+                        class="hm-cell">{{ dashData.charts.courtHeatmap.matrix[yi][xi] }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- NEW: Divorce Initiator × Reason Heatmap -->
+            <div class="chart-card">
+              <div class="chart-title">主動離婚者 × 離婚原因熱度圖</div>
+              <div class="chart-sub">主動離婚者與離婚原因交叉分析</div>
+              <div v-if="!dashData.charts.divorceInitiatorHeatmap?.xLabels?.length" class="no-data">無資料</div>
+              <div v-else style="overflow-x:auto">
+                <table class="heatmap">
+                  <thead><tr><th style="width:100px"></th><th v-for="x in dashData.charts.divorceInitiatorHeatmap.xLabels" :key="x">{{ x }}</th></tr></thead>
+                  <tbody>
+                    <tr v-for="(y, yi) in dashData.charts.divorceInitiatorHeatmap.yLabels" :key="y">
+                      <td class="hm-label">{{ y }}</td>
+                      <td v-for="(x, xi) in dashData.charts.divorceInitiatorHeatmap.xLabels" :key="x"
+                        :style="{ background: `rgba(242,140,82,${0.08 + (dashData.charts.divorceInitiatorHeatmap.matrix[yi][xi] / (dashData.charts.divorceInitiatorHeatmap.max || 1)) * 0.82})`, color: (dashData.charts.divorceInitiatorHeatmap.matrix[yi][xi] / (dashData.charts.divorceInitiatorHeatmap.max || 1)) > 0.5 ? '#fff' : '#111827' }"
+                        class="hm-cell">{{ dashData.charts.divorceInitiatorHeatmap.matrix[yi][xi] }}</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
