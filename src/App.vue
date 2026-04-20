@@ -4,8 +4,8 @@ import { ref, computed, watch, onMounted } from 'vue'
 // ═══════════════════════════════════════════════════════════
 //  Section 1 — API Configuration
 // ═══════════════════════════════════════════════════════════
-const API_BASE = import.meta.env.VITE_API_BASE
-console.log('API 連線位址:', API_BASE)
+const API_BASE = (import.meta.env.VITE_API_BASE || '').replace(/\/+$/, '')
+console.log('當前 API 連線位址:', API_BASE)
 
 async function api(path, params = {}) {
   const url = new URL(`${API_BASE}${path}`)
