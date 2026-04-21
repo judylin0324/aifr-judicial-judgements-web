@@ -28,13 +28,40 @@ const CATEGORIES = [
 const CASE_TYPES = {
   criminal_litigation: { label: '刑事訴訟', category: 'criminal', icon: '⚖️' },
   civil_litigation:    { label: '民事訴訟', category: 'civil',    icon: '📋' },
-  civil_nonlitig:      { label: '民事非訟', category: 'civil',    icon: '📝' },
   family_litigation:   { label: '家事訴訟', category: 'family',   icon: '👨‍👩‍👧' },
 }
 const PALETTE = ['#4F86F7','#F28C52','#35B679','#D9A93A','#E45C5C','#8B5CF6','#06B6D4','#EC4899','#84CC16']
 const AG_MIT_CATS = ['無加重無減輕','僅有加重法條','僅有減輕法條','有加重有減輕']
 const AG_MIT_COLORS = {'無加重無減輕':'#4F86F7','僅有加重法條':'#F28C52','僅有減輕法條':'#35B679','有加重有減輕':'#D9A93A'}
 const JURL = 'https://judgment.judicial.gov.tw/FJUD/data.aspx?ty=JD&id='
+
+// Taiwan court positions (approximate SVG coordinates on 400x560 viewBox)
+const COURT_POS = {
+  '基隆地方法院': { x: 310, y: 68 },
+  '臺北地方法院': { x: 270, y: 90 },
+  '士林地方法院': { x: 280, y: 78 },
+  '新北地方法院': { x: 260, y: 100 },
+  '桃園地方法院': { x: 230, y: 115 },
+  '新竹地方法院': { x: 218, y: 140 },
+  '苗栗地方法院': { x: 198, y: 168 },
+  '臺中地方法院': { x: 178, y: 205 },
+  '南投地方法院': { x: 198, y: 240 },
+  '彰化地方法院': { x: 158, y: 225 },
+  '雲林地方法院': { x: 142, y: 260 },
+  '嘉義地方法院': { x: 148, y: 290 },
+  '臺南地方法院': { x: 138, y: 325 },
+  '高雄地方法院': { x: 155, y: 365 },
+  '橋頭地方法院': { x: 145, y: 350 },
+  '屏東地方法院': { x: 170, y: 400 },
+  '宜蘭地方法院': { x: 300, y: 120 },
+  '花蓮地方法院': { x: 290, y: 210 },
+  '臺東地方法院': { x: 250, y: 350 },
+  '澎湖地方法院': { x: 60, y: 290 },
+  '金門地方法院': { x: 32, y: 140 },
+  '連江地方法院': { x: 32, y: 80 },
+  '福建金門地方法院': { x: 32, y: 140 },
+  '福建連江地方法院': { x: 32, y: 80 },
+}
 
 // ═══════════════════════════════════════════════════════════
 //  Section 3 — Utility Functions
@@ -61,10 +88,7 @@ function qtl(sorted, q) { if (!sorted.length) return 0; const p = (sorted.length
 // ═══════════════════════════════════════════════════════════
 //  Section 4 — Filter Definitions per Case Type
 // ═══════════════════════════════════════════════════════════
-// Each case type has a list of filter groups; each filter group has a section title, color, and items.
-// Each item: { key (param name), label, optsKey (key in filterOptions), canToggle }
-// "canToggle" means the user can switch between union(+) and intersection(&).
-const LOCKED_OR_KEYS = new Set(['cls','court','ending','procedure','probation','recidivist','cause','lawyer','initiator','divorce_reason','action','subject','lawsuit_type','amount_tier','national_comp','agency_type','comp_type','public_type','election_type','is_debt','debt_reason'])
+const LOCKED_OR_KEYS = new Set(['cls','court','ending','procedure','probation','cause','lawyer','initiator','divorce_reason','action','subject','lawsuit_type','amount_tier','national_comp','agency_type','comp_type','public_type','election_type'])
 
 function getFilterDefs(caseType) {
   if (caseType === 'criminal_litigation') return [
@@ -82,7 +106,6 @@ function getFilterDefs(caseType) {
       { key: 'probation', label: '宣告緩刑', optsKey: 'probs' },
       { key: 'probcond', label: '緩刑條件', optsKey: 'probcond', canToggle: true },
       { key: 'dv', label: '家暴相關', optsKey: 'dv', canToggle: true },
-      { key: 'recidivist', label: '累犯', optsKey: 'recid' },
     ]},
     { title: '罪刑資訊', color: 'green', items: [
       { key: 'article', label: '定罪法條', optsKey: 'articles', canToggle: true },
@@ -108,18 +131,6 @@ function getFilterDefs(caseType) {
       { key: 'comp_type', label: '賠償類別', optsKey: 'compTypes' },
       { key: 'public_type', label: '公職類別', optsKey: 'publicTypes' },
       { key: 'election_type', label: '選舉類別', optsKey: 'electionTypes' },
-    ]},
-  ]
-  if (caseType === 'civil_nonlitig') return [
-    { title: '案件資訊', color: 'blue', items: [
-      { key: 'court', label: '法院別', optsKey: 'courts' },
-      { key: 'ending', label: '終結情形', optsKey: 'endings' },
-      { key: 'action', label: '案由-動作', optsKey: 'actions' },
-      { key: 'subject', label: '案由-標的', optsKey: 'subjects' },
-    ]},
-    { title: '其他', color: 'orange', items: [
-      { key: 'is_debt', label: '是否消債事件', optsKey: 'isDebt' },
-      { key: 'debt_reason', label: '消債事件駁回原因', optsKey: 'debtReasons' },
     ]},
   ]
   if (caseType === 'family_litigation') return [
@@ -159,13 +170,20 @@ function getSearch(key) { return searchStates.value[key] || '' }
 function setSearch(key, val) { searchStates.value = { ...searchStates.value, [key]: val } }
 function toggleAcc(key) { openAcc.value = openAcc.value === key ? null : key }
 
-// Filters — stored as { paramKey: [selectedValues] } plus ym_min/ym_max
+// Filters
 const filters = ref({})
-const logicModes = ref({})   // { paramKey: 'or' | 'and' }
-const appliedFilters = ref(null) // snapshot after submit
+const logicModes = ref({})
+const appliedFilters = ref(null)
 const appliedLogic = ref(null)
 const pg = ref(0)
 const PG = 10
+
+// Expandable judgment rows
+const expandedJid = ref(null)
+function toggleExpand(jid) { expandedJid.value = expandedJid.value === jid ? null : jid }
+
+// Map tooltip state
+const mapTooltip = ref({ show: false, x: 0, y: 0, data: null })
 
 function getFilter(key) { return filters.value[key] || [] }
 function setFilter(key, val) { filters.value = { ...filters.value, [key]: val } }
@@ -193,6 +211,7 @@ function allClear() {
   showFilterTip.value = false
   searchStates.value = {}
   openAcc.value = null
+  expandedJid.value = null
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -227,7 +246,6 @@ const filterSummary = computed(() => {
 async function loadTypes() {
   try {
     availableTypes.value = await api('/api/types')
-    // Auto-select first available
     const first = availableTypes.value.find(t => t.available)
     if (first) {
       activeType.value = first.key
@@ -248,7 +266,6 @@ async function loadData() {
   try {
     const params = {}
     const af = appliedFilters.value || {}
-    // Build query params from applied filters
     for (const [k, v] of Object.entries(af)) {
       if (k === 'ym_min' || k === 'ym_max') {
         if (v) params[k] = v
@@ -256,7 +273,6 @@ async function loadData() {
         params[k] = v.join(',')
       }
     }
-    // Logic modes for toggleable filters
     const lg = appliedLogic.value || {}
     const logicParam = {}
     let hasLogic = false
@@ -275,7 +291,6 @@ async function loadData() {
 }
 
 function handleSubmit() {
-  // Snapshot current filters
   appliedFilters.value = JSON.parse(JSON.stringify({
     ...filters.value,
     ym_min: filters.value.ym_min || '',
@@ -297,17 +312,16 @@ function handleDL() {
 }
 
 // ═══════════════════════════════════════════════════════════
-//  Section 8 — SVG Chart Builders (from API data)
+//  Section 8 — SVG Chart Builders
 // ═══════════════════════════════════════════════════════════
 
-// Heatmap renderer (used for all heatmap chart types)
-// Input: { xLabels, yLabels, matrix, max }
+// Heatmap color
 function heatmapColor(val, maxVal, baseColor = '79,134,247') {
   const ratio = val / (maxVal || 1)
   return `rgba(${baseColor},${0.08 + ratio * 0.82})`
 }
 
-// Stacked bar SVG builder (from API data: { data, segments })
+// Stacked bar SVG builder
 function stackedBarSvg(chartData) {
   if (!chartData?.data?.length || !chartData?.segments?.length) return null
   const segments = chartData.segments
@@ -329,7 +343,57 @@ function stackedBarSvg(chartData) {
   return { W, H, rows, LM, barW, segments }
 }
 
-// Violin SVG builder (from API data: array of { name, values, mean, median, n })
+// Dual-axis bar chart SVG builder
+function dualAxisBarSvg(chartData) {
+  if (!chartData?.data?.length || !chartData?.segments?.length) return null
+  const data = chartData.data
+  const segments = chartData.segments
+  const LM = 120, RM = 60, TM = 20, BM = 50
+  const groupW = 70, gap = 12
+  const W = LM + data.length * (groupW + gap) + RM
+  const maxCount = Math.max(...data.map(d => d.total), 1)
+  const plotH = 260
+  const H = TM + plotH + BM
+
+  // Y-axis ticks for counts
+  const step = Math.max(1, Math.ceil(maxCount / 5 / Math.pow(10, Math.floor(Math.log10(maxCount / 5)))) * Math.pow(10, Math.floor(Math.log10(maxCount / 5))))
+  const yTicks = []
+  for (let t = 0; t <= maxCount * 1.1; t += step) yTicks.push(t)
+  const yMax = yTicks[yTicks.length - 1] || maxCount
+
+  const yS = v => TM + plotH - (v / yMax) * plotH
+  const pctS = v => TM + plotH - (v / 100) * plotH
+
+  const groups = data.map((d, gi) => {
+    const gx = LM + gi * (groupW + gap)
+    const segW = groupW / segments.length
+    const bars = segments.map((seg, si) => {
+      const count = d[seg] || 0
+      const h = (count / yMax) * plotH
+      return {
+        x: gx + si * segW,
+        y: TM + plotH - h,
+        w: Math.max(1, segW - 1),
+        h,
+        fill: PALETTE[si % PALETTE.length],
+        seg,
+        count
+      }
+    })
+    // Proportion line point
+    const lineX = gx + groupW / 2
+    const lineY = pctS(d.pct)
+    return { name: d.name, gx, bars, lineX, lineY, total: d.total, pct: d.pct }
+  })
+
+  // Proportion line path
+  const linePoints = groups.map(g => `${g.lineX},${g.lineY}`).join(' L ')
+  const linePath = groups.length > 1 ? `M ${linePoints}` : ''
+
+  return { W, H, LM, RM, TM, BM, plotH, groups, yTicks, yMax, yS, pctS, segments, linePath }
+}
+
+// Violin SVG builder
 function violinSvgData(violinData) {
   if (!violinData?.length) return null
   const LM = 210, RM = 78, TM = 28, BM = 76, rowH = 104, W = 860
@@ -357,7 +421,7 @@ function violinSvgData(violinData) {
   return { W, H, LM, RM, TM, BM, rows, tickData, axisLabel: '刑期（月）' }
 }
 
-// Box-whisker SVG builder (from API data: array of { law, n, dominant, q1, median, q3, iqr, whiskerLow, whiskerHigh, outliers, min, max })
+// Box-whisker SVG builder
 function boxSvgData(boxData) {
   if (!boxData?.length) return null
   const LM = 210, RM = 22, TM = 28, BM = 110, rowH = 104, W = 860
@@ -383,35 +447,10 @@ function boxSvgData(boxData) {
 const charts = computed(() => dashData.value?.charts || {})
 const stats = computed(() => dashData.value?.stats || {})
 const judgments = computed(() => dashData.value?.judgments || { items: [], total: 0, totalPages: 1 })
-const filteredRows = computed(() => dashData.value?.filteredRows || 0)
 
 // Criminal chart computeds
-const c2svg = computed(() => {
-  if (!charts.value.lawStack) return null
-  return stackedBarSvg(charts.value.lawStack)
-})
-const vSvg = computed(() => {
-  if (!charts.value.violin) return null
-  return violinSvgData(charts.value.violin)
-})
-const bSvg = computed(() => {
-  if (!charts.value.boxWhisker) return null
-  return boxSvgData(charts.value.boxWhisker)
-})
-
-// Civil / Nonlitig / Family stacked bar computeds
-const stackSvg1 = computed(() => {
-  // First stacked bar in non-criminal types
-  const ct = activeType.value
-  if (ct === 'civil_litigation') return stackedBarSvg(charts.value.lawyerEndingStack)
-  if (ct === 'civil_nonlitig') return stackedBarSvg(charts.value.courtActionStack)
-  if (ct === 'family_litigation') return stackedBarSvg(charts.value.lawyerCauseStack)
-  return null
-})
-const stackSvg2 = computed(() => {
-  if (activeType.value === 'civil_nonlitig') return stackedBarSvg(charts.value.causeEndingStack)
-  return null
-})
+const vSvg = computed(() => violinSvgData(charts.value.violin))
+const bSvg = computed(() => boxSvgData(charts.value.boxWhisker))
 
 // ═══════════════════════════════════════════════════════════
 //  Section 10 — Stats Card Definitions per Type
@@ -429,9 +468,6 @@ const statCards = computed(() => {
     { l: '裁判書篇數', v: s.judgmentCount, a: '#4F86F7' },
     { l: '律師代理率', v: s.lawyerRate != null ? s.lawyerRate + '%' : '-', a: '#F28C52', raw: true },
   ]
-  if (ct === 'civil_nonlitig') return [
-    { l: '裁判書篇數', v: s.judgmentCount, a: '#4F86F7' },
-  ]
   if (ct === 'family_litigation') return [
     { l: '裁判書篇數', v: s.judgmentCount, a: '#4F86F7' },
     { l: '律師代理率', v: s.lawyerRate != null ? s.lawyerRate + '%' : '-', a: '#F28C52', raw: true },
@@ -446,34 +482,43 @@ const statCards = computed(() => {
 const chartLayout = computed(() => {
   const ct = activeType.value
   if (ct === 'criminal_litigation') return [
-    { type: 'heatmap', key: 'caseHeatmap', title: '案件結構熱度圖', sub: '案件分類 × 終結情形' },
+    { type: 'heatmap', key: 'caseHeatmap', title: '案件結構熱度圖', sub: '' },
     { type: 'stackedBar', key: 'lawStack', title: '法條量刑結構堆疊圖', sub: '適用加重減輕類型分布' },
     { type: 'violin', key: 'violin', title: '法條有期徒刑分布小提琴圖', sub: '刑期分布、平均值與中位數' },
     { type: 'boxWhisker', key: 'boxWhisker', title: '法條有期徒刑盒鬚圖', sub: '中位數、四分位距與離群值' },
   ]
   if (ct === 'civil_litigation') return [
-    { type: 'heatmap', key: 'courtSubjectHeatmap', title: '法院×案由標的熱度圖', sub: '各法院案由標的分布' },
-    { type: 'heatmap', key: 'actionSubjectHeatmap', title: '案由動作×標的交叉', sub: '動作與標的交叉分析' },
+    { type: 'taiwanMap', key: 'courtMap', title: '法院案件地圖', sub: '各法院前五案由標的、律師率與勝訴率' },
     { type: 'heatmap', key: 'amountLawyerHeatmap', title: '標的金額×律師代理交叉', sub: '金額級距與律師代理情形' },
-    { type: 'stackedBar', key: 'lawyerEndingStack', title: '律師代理×終結堆疊圖', sub: '律師代理情形與終結情形' },
-  ]
-  if (ct === 'civil_nonlitig') return [
-    { type: 'stackedBar', key: 'courtActionStack', title: '法院×案由動作堆疊圖', sub: '各法院案由動作分布' },
-    { type: 'heatmap', key: 'actionSubjectHeatmap', title: '動作×標的交叉', sub: '案由動作與標的交叉分析' },
-    { type: 'heatmap', key: 'courtEndingHeatmap', title: '法院×終結熱度圖', sub: '各法院終結情形分布' },
-    { type: 'stackedBar', key: 'causeEndingStack', title: '案由×終結', sub: '案由大分類與終結情形' },
+    { type: 'dualAxisBar', key: 'lawyerEndingBar', title: '律師代理×終結情形', sub: '各律師代理情形案件數與占比' },
   ]
   if (ct === 'family_litigation') return [
-    { type: 'heatmap', key: 'courtCauseHeatmap', title: '法院×案由熱度圖', sub: '各法院案由分布' },
+    { type: 'taiwanMap', key: 'divorceCourtMap', title: '離婚案件法院地圖', sub: '各法院離婚案件比例、律師率與勝訴率' },
     { type: 'divorceAnalysis', key: 'divorceAnalysis', title: '離婚案件分析', sub: '離婚原因、主動方與終結情形' },
-    { type: 'inheritAnalysis', key: 'inheritAnalysis', title: '繼承案件分析', sub: '繼承案件終結情形分布' },
-    { type: 'stackedBar', key: 'lawyerCauseStack', title: '律師×案由堆疊圖', sub: '律師代理情形與案由' },
+    { type: 'taiwanMap', key: 'inheritCourtMap', title: '繼承案件法院地圖', sub: '各法院繼承案件比例、律師率與勝訴率' },
+    { type: 'dualAxisBar', key: 'lawyerCauseBar', title: '律師代理×案由', sub: '各律師代理情形案件數與占比' },
   ]
   return []
 })
 
 // ═══════════════════════════════════════════════════════════
-//  Section 12 — Lifecycle
+//  Section 12 — Map Tooltip Helpers
+// ═══════════════════════════════════════════════════════════
+function showMapTooltip(evt, courtData) {
+  const rect = evt.currentTarget.closest('svg').getBoundingClientRect()
+  mapTooltip.value = {
+    show: true,
+    x: evt.clientX - rect.left + 15,
+    y: evt.clientY - rect.top - 10,
+    data: courtData
+  }
+}
+function hideMapTooltip() {
+  mapTooltip.value = { show: false, x: 0, y: 0, data: null }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Section 13 — Lifecycle
 // ═══════════════════════════════════════════════════════════
 onMounted(async () => {
   await loadTypes()
@@ -497,8 +542,12 @@ function switchType(type) {
   activeCat.value = CASE_TYPES[type]?.category || 'criminal'
 }
 
-// Filter section definitions (computed based on active type)
 const filterDefs = computed(() => getFilterDefs(activeType.value))
+
+// Criminal heatmap title from API
+const heatmapTitle = computed(() => {
+  return charts.value?.caseHeatmap?.heatmapTitle || '案件分類 × 終結情形'
+})
 </script>
 
 <template>
@@ -513,7 +562,6 @@ const filterDefs = computed(() => getFilterDefs(activeType.value))
     <!-- ██ Sidebar ██ -->
     <div class="sidebar" :style="{ width: sideOpen ? '320px' : '0', minWidth: sideOpen ? '320px' : '0' }">
       <div class="sidebar-inner">
-        <!-- Sticky header -->
         <div class="sidebar-header">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px">
             <h2 style="font-size:15px;font-weight:700;margin:0;color:#111827">篩選條件</h2>
@@ -532,7 +580,6 @@ const filterDefs = computed(() => getFilterDefs(activeType.value))
           </div>
         </div>
 
-        <!-- Scrollable filters -->
         <div class="sidebar-scroll">
           <!-- 終結年月 -->
           <div class="filter-group" v-if="filterOptions.ym?.length">
@@ -597,11 +644,11 @@ const filterDefs = computed(() => getFilterDefs(activeType.value))
 
     <!-- ██ Main Area ██ -->
     <div class="main-area">
-      <!-- Header with type tabs -->
+      <!-- Header -->
       <div class="main-header">
-        <h1 style="font-size:22px;font-weight:700;margin:0;color:#0f172a">⚖️ 裁判書量化實證研究平台</h1>
+        <h1 style="font-size:22px;font-weight:700;margin:0;color:#0f172a">裁判書量化實證研究平台</h1>
         <div style="display:flex;gap:8px;align-items:center">
-          <button @click="handleDL" :disabled="!dashData?.judgments?.items?.length" class="btn-dl">⬇ 下載判決清單</button>
+          <button @click="handleDL" :disabled="!dashData?.judgments?.items?.length" class="btn-dl">下載判決清單</button>
         </div>
       </div>
 
@@ -618,32 +665,28 @@ const filterDefs = computed(() => getFilterDefs(activeType.value))
       </div>
 
       <!-- Filter summary -->
-      <div class="filter-summary">🔍 {{ filterSummary }}</div>
+      <div class="filter-summary">{{ filterSummary }}</div>
 
       <!-- Loading -->
       <div v-if="loading" class="loading-overlay">載入中…</div>
       <div v-if="error" class="error-bar">{{ error }}</div>
 
-      <!-- Stats -->
+      <!-- Stats (no 篩選後資料筆數) -->
       <div class="stats-grid" v-if="dashData">
         <div v-for="s in statCards" :key="s.l" class="stat-card">
           <div class="stat-accent" :style="{ background: s.a }"></div>
           <div class="stat-label">{{ s.l }}</div>
           <div class="stat-value">{{ s.raw ? s.v : (typeof s.v === 'number' ? s.v.toLocaleString() : (s.v ?? '-')) }}</div>
         </div>
-        <div class="stat-card">
-          <div class="stat-accent" style="background:#9ca3af"></div>
-          <div class="stat-label">篩選後資料筆數</div>
-          <div class="stat-value">{{ filteredRows.toLocaleString() }}</div>
-        </div>
       </div>
 
-      <!-- Charts 2x2 grid -->
-      <div class="chart-grid" v-if="dashData">
+      <!-- Charts grid (criminal: 2 columns fixed; others: auto) -->
+      <div :class="['chart-grid', { 'chart-grid-2col': activeType === 'criminal_litigation' }]" v-if="dashData">
         <template v-for="ch in chartLayout" :key="ch.key">
-          <!-- Heatmap -->
+
+          <!-- ══ Heatmap ══ -->
           <div class="chart-card" v-if="ch.type === 'heatmap'">
-            <div class="chart-title">{{ ch.title }}</div>
+            <div class="chart-title">{{ ch.key === 'caseHeatmap' ? heatmapTitle : ch.title }}</div>
             <div class="chart-sub">{{ ch.sub }}</div>
             <div v-if="!charts[ch.key]?.xLabels?.length" class="no-data">無資料</div>
             <div v-else style="overflow-x:auto">
@@ -660,7 +703,7 @@ const filterDefs = computed(() => getFilterDefs(activeType.value))
             </div>
           </div>
 
-          <!-- Stacked Bar -->
+          <!-- ══ Stacked Bar ══ -->
           <div class="chart-card" v-if="ch.type === 'stackedBar'">
             <div class="chart-title">{{ ch.title }}</div>
             <div class="chart-sub">{{ ch.sub }}</div>
@@ -685,7 +728,107 @@ const filterDefs = computed(() => getFilterDefs(activeType.value))
             <div v-else class="no-data">無資料</div>
           </div>
 
-          <!-- Violin (criminal only) -->
+          <!-- ══ Dual-Axis Bar ══ -->
+          <div class="chart-card" v-if="ch.type === 'dualAxisBar'">
+            <div class="chart-title">{{ ch.title }}</div>
+            <div class="chart-sub">{{ ch.sub }}</div>
+            <template v-if="charts[ch.key]?.data?.length">
+              <div style="width:100%;overflow-x:auto" v-if="dualAxisBarSvg(charts[ch.key])">
+                <svg width="100%" :viewBox="`0 0 ${dualAxisBarSvg(charts[ch.key]).W} ${dualAxisBarSvg(charts[ch.key]).H}`" preserveAspectRatio="xMinYMin meet">
+                  <!-- Y-axis grid lines + labels (left: counts) -->
+                  <template v-for="(t, ti) in dualAxisBarSvg(charts[ch.key]).yTicks" :key="'yt'+ti">
+                    <line :x1="dualAxisBarSvg(charts[ch.key]).LM" :x2="dualAxisBarSvg(charts[ch.key]).W - dualAxisBarSvg(charts[ch.key]).RM"
+                      :y1="dualAxisBarSvg(charts[ch.key]).yS(t)" :y2="dualAxisBarSvg(charts[ch.key]).yS(t)"
+                      stroke="#e5e7eb" stroke-dasharray="3 3" />
+                    <text :x="dualAxisBarSvg(charts[ch.key]).LM - 8" :y="dualAxisBarSvg(charts[ch.key]).yS(t) + 4"
+                      text-anchor="end" font-size="10" fill="#6b7280">{{ t.toLocaleString() }}</text>
+                  </template>
+                  <!-- Right Y-axis labels (percentage) -->
+                  <template v-for="p in [0, 20, 40, 60, 80, 100]" :key="'pct'+p">
+                    <text :x="dualAxisBarSvg(charts[ch.key]).W - dualAxisBarSvg(charts[ch.key]).RM + 8"
+                      :y="dualAxisBarSvg(charts[ch.key]).pctS(p) + 4"
+                      text-anchor="start" font-size="10" fill="#E45C5C">{{ p }}%</text>
+                  </template>
+                  <!-- Bars -->
+                  <template v-for="(g, gi) in dualAxisBarSvg(charts[ch.key]).groups" :key="'g'+gi">
+                    <rect v-for="b in g.bars" :key="b.seg" :x="b.x" :y="b.y" :width="b.w" :height="b.h" :fill="b.fill" rx="2">
+                      <title>{{ g.name }} - {{ b.seg }}：{{ b.count.toLocaleString() }} 件</title>
+                    </rect>
+                    <text :x="g.gx + 35" :y="dualAxisBarSvg(charts[ch.key]).TM + dualAxisBarSvg(charts[ch.key]).plotH + 16"
+                      text-anchor="middle" font-size="10" fill="#374151" font-weight="500">
+                      <tspan v-for="(line, li) in wrapTextLines(g.name, 6, 2)" :key="li" :x="g.gx + 35" :dy="li === 0 ? 0 : 12">{{ line }}</tspan>
+                    </text>
+                  </template>
+                  <!-- Proportion line -->
+                  <path v-if="dualAxisBarSvg(charts[ch.key]).linePath" :d="dualAxisBarSvg(charts[ch.key]).linePath"
+                    fill="none" stroke="#E45C5C" stroke-width="2.5" stroke-linejoin="round" />
+                  <!-- Proportion dots -->
+                  <template v-for="(g, gi) in dualAxisBarSvg(charts[ch.key]).groups" :key="'dot'+gi">
+                    <circle :cx="g.lineX" :cy="g.lineY" r="4" fill="#E45C5C" stroke="#fff" stroke-width="1.5" />
+                    <text :x="g.lineX" :y="g.lineY - 8" text-anchor="middle" font-size="9" fill="#E45C5C" font-weight="700">{{ g.pct }}%</text>
+                  </template>
+                  <!-- Axis labels -->
+                  <text :x="6" :y="dualAxisBarSvg(charts[ch.key]).TM + dualAxisBarSvg(charts[ch.key]).plotH / 2" text-anchor="middle" font-size="11" fill="#6b7280" transform="rotate(-90, 10, 160)">案件數</text>
+                  <text :x="dualAxisBarSvg(charts[ch.key]).W - 6" :y="dualAxisBarSvg(charts[ch.key]).TM + dualAxisBarSvg(charts[ch.key]).plotH / 2" text-anchor="middle" font-size="11" fill="#E45C5C" transform="rotate(90, 396, 160)">占比(%)</text>
+                </svg>
+              </div>
+              <div class="legend-row">
+                <div v-for="(seg, si) in charts[ch.key].segments" :key="seg" class="legend-item">
+                  <span class="legend-dot" :style="{ background: PALETTE[si % PALETTE.length] }"></span>{{ seg }}
+                </div>
+                <div class="legend-item"><span style="width:16px;height:3px;background:#E45C5C;display:inline-block;border-radius:2px"></span> 占比線</div>
+              </div>
+            </template>
+            <div v-else class="no-data">無資料</div>
+          </div>
+
+          <!-- ══ Taiwan Map ══ -->
+          <div class="chart-card" v-if="ch.type === 'taiwanMap'">
+            <div class="chart-title">{{ ch.title }}</div>
+            <div class="chart-sub">{{ ch.sub }}</div>
+            <div v-if="!charts[ch.key]?.length" class="no-data">無資料</div>
+            <div v-else class="map-container">
+              <svg viewBox="0 0 400 560" width="100%" style="max-width:500px;margin:0 auto;display:block">
+                <!-- Taiwan outline (simplified) -->
+                <path d="M270,55 C295,50 320,60 325,75 C330,95 310,105 305,130 C300,155 295,170 290,195 C285,220 280,240 270,265 C260,290 245,310 230,335 C215,360 200,380 190,400 C180,420 175,440 172,455 C169,470 175,480 168,490 C160,495 148,480 140,460 C132,440 125,415 120,390 C115,365 118,345 120,320 C122,295 128,275 132,255 C136,235 140,215 148,195 C156,175 165,160 178,145 C191,130 200,125 210,115 C220,105 230,95 240,82 C250,69 255,57 270,55 Z"
+                  fill="#e8f4f8" stroke="#94a3b8" stroke-width="1.5" />
+                <!-- Court markers -->
+                <template v-for="court in charts[ch.key]" :key="court.court">
+                  <g v-if="COURT_POS[court.court]"
+                    @mouseenter="showMapTooltip($event, court)"
+                    @mouseleave="hideMapTooltip"
+                    style="cursor:pointer">
+                    <circle
+                      :cx="COURT_POS[court.court].x"
+                      :cy="COURT_POS[court.court].y"
+                      :r="Math.max(6, Math.min(22, Math.sqrt(court.pct) * 6))"
+                      fill="rgba(79,134,247,0.6)" stroke="#2563eb" stroke-width="1.5" />
+                    <text :x="COURT_POS[court.court].x" :y="COURT_POS[court.court].y + Math.max(6, Math.min(22, Math.sqrt(court.pct) * 6)) + 12"
+                      text-anchor="middle" font-size="9" fill="#374151" font-weight="600">
+                      {{ court.court.replace('地方法院','') }}
+                    </text>
+                  </g>
+                </template>
+              </svg>
+              <!-- Tooltip -->
+              <div v-if="mapTooltip.show && mapTooltip.data" class="map-tooltip"
+                :style="{ left: mapTooltip.x + 'px', top: mapTooltip.y + 'px' }">
+                <div class="tooltip-title">{{ mapTooltip.data.court }}</div>
+                <div class="tooltip-row">案件數：{{ mapTooltip.data.count.toLocaleString() }}（{{ mapTooltip.data.pct }}%）</div>
+                <div v-if="mapTooltip.data.lawyerRate !== undefined" class="tooltip-row">律師代理率：{{ mapTooltip.data.lawyerRate }}%</div>
+                <div v-if="mapTooltip.data.withLawyerWinRate !== undefined" class="tooltip-row">有律師勝訴率：{{ mapTooltip.data.withLawyerWinRate }}%</div>
+                <div v-if="mapTooltip.data.noLawyerWinRate !== undefined" class="tooltip-row">無律師勝訴率：{{ mapTooltip.data.noLawyerWinRate }}%</div>
+                <div v-if="mapTooltip.data.topCats?.length" class="tooltip-cats">
+                  <div class="tooltip-cat-title">前五類別：</div>
+                  <div v-for="cat in mapTooltip.data.topCats.slice(0, 5)" :key="cat.name" class="tooltip-cat">
+                    {{ cat.name }}：{{ cat.count }}（{{ cat.pct }}%）
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ══ Violin (criminal only) ══ -->
           <div class="chart-card" v-if="ch.type === 'violin'">
             <div class="chart-title">{{ ch.title }}</div>
             <div class="chart-sub">{{ ch.sub }}</div>
@@ -713,7 +856,7 @@ const filterDefs = computed(() => getFilterDefs(activeType.value))
             </div>
           </div>
 
-          <!-- Box-Whisker (criminal only) -->
+          <!-- ══ Box-Whisker (criminal only) ══ -->
           <div class="chart-card" v-if="ch.type === 'boxWhisker'">
             <div class="chart-title">{{ ch.title }}</div>
             <div class="chart-sub">{{ ch.sub }}</div>
@@ -751,14 +894,13 @@ const filterDefs = computed(() => getFilterDefs(activeType.value))
             </template>
           </div>
 
-          <!-- Divorce Analysis (family only) -->
+          <!-- ══ Divorce Analysis (family only) ══ -->
           <div class="chart-card" v-if="ch.type === 'divorceAnalysis'">
             <div class="chart-title">{{ ch.title }}</div>
             <div class="chart-sub">{{ ch.sub }}</div>
             <div v-if="!charts.divorceAnalysis" class="no-data">無資料</div>
             <template v-else>
               <div style="display:flex;flex-wrap:wrap;gap:16px">
-                <!-- Reason distribution -->
                 <div v-if="charts.divorceAnalysis.reasonDist?.length" style="flex:1;min-width:200px">
                   <div style="font-size:12px;font-weight:700;margin-bottom:6px;color:#374151">離婚原因</div>
                   <div v-for="item in charts.divorceAnalysis.reasonDist" :key="item.name" class="bar-item">
@@ -767,7 +909,6 @@ const filterDefs = computed(() => getFilterDefs(activeType.value))
                     <div class="bar-count">{{ item.count }}</div>
                   </div>
                 </div>
-                <!-- Initiator distribution -->
                 <div v-if="charts.divorceAnalysis.initiatorDist?.length" style="flex:1;min-width:200px">
                   <div style="font-size:12px;font-weight:700;margin-bottom:6px;color:#374151">主動離婚者</div>
                   <div v-for="item in charts.divorceAnalysis.initiatorDist" :key="item.name" class="bar-item">
@@ -776,7 +917,6 @@ const filterDefs = computed(() => getFilterDefs(activeType.value))
                     <div class="bar-count">{{ item.count }}</div>
                   </div>
                 </div>
-                <!-- Ending distribution -->
                 <div v-if="charts.divorceAnalysis.endingDist?.length" style="flex:1;min-width:200px">
                   <div style="font-size:12px;font-weight:700;margin-bottom:6px;color:#374151">終結情形</div>
                   <div v-for="item in charts.divorceAnalysis.endingDist" :key="item.name" class="bar-item">
@@ -789,24 +929,10 @@ const filterDefs = computed(() => getFilterDefs(activeType.value))
             </template>
           </div>
 
-          <!-- Inherit Analysis (family only) -->
-          <div class="chart-card" v-if="ch.type === 'inheritAnalysis'">
-            <div class="chart-title">{{ ch.title }}</div>
-            <div class="chart-sub">{{ ch.sub }}</div>
-            <div v-if="!charts.inheritAnalysis?.endingDist?.length" class="no-data">無資料</div>
-            <template v-else>
-              <div style="font-size:12px;color:#6b7280;margin-bottom:8px">共 {{ charts.inheritAnalysis.total }} 件繼承案件</div>
-              <div v-for="item in charts.inheritAnalysis.endingDist" :key="item.name" class="bar-item">
-                <div class="bar-label">{{ item.name }}</div>
-                <div class="bar-track"><div class="bar-fill" :style="{ width: Math.max(2, item.count / (charts.inheritAnalysis.endingDist[0]?.count || 1) * 100) + '%' }"></div></div>
-                <div class="bar-count">{{ item.count }}</div>
-              </div>
-            </template>
-          </div>
         </template>
       </div>
 
-      <!-- ██ Judgment Table ██ -->
+      <!-- ██ Judgment Table (centered) ██ -->
       <div class="table-wrap" v-if="dashData">
         <div class="table-header">
           <div style="font-size:14px;font-weight:700;color:#111827">
@@ -820,21 +946,61 @@ const filterDefs = computed(() => getFilterDefs(activeType.value))
             <button :disabled="pg >= (judgments.totalPages || 1) - 1" @click="pg++" class="btn-page">下一頁 ›</button>
           </div>
         </div>
-        <div class="table-col-header">
+        <div :class="['table-col-header', activeType === 'criminal_litigation' ? 'grid-criminal' : 'grid-civil']">
           <div>裁判書 ID</div>
           <div style="text-align:center">法院別</div>
           <div style="text-align:center">案由</div>
           <div style="text-align:center">終結情形</div>
           <div v-if="activeType === 'criminal_litigation'" style="text-align:center">分類</div>
+          <div v-if="activeType !== 'criminal_litigation'" style="text-align:center">律師</div>
         </div>
         <div v-if="!judgments.items?.length" style="padding:32px;text-align:center;color:#9ca3af;font-size:12px">無符合條件的判決書</div>
-        <div v-for="j in judgments.items" :key="j.jid" class="table-row">
-          <div class="table-jid"><a :href="JURL + j.jid" target="_blank" rel="noopener noreferrer" class="jid-link">{{ j.jid }}</a></div>
-          <div style="font-size:10px;text-align:center">{{ j.court }}</div>
-          <div class="table-reason">{{ j.cause }}</div>
-          <div style="font-size:10px;text-align:center">{{ j.ending }}</div>
-          <div v-if="activeType === 'criminal_litigation'" style="text-align:center;font-size:10px">{{ j.cls }}</div>
-        </div>
+        <template v-for="j in judgments.items" :key="j.jid">
+          <div :class="['table-row', activeType === 'criminal_litigation' ? 'grid-criminal' : 'grid-civil', { expanded: expandedJid === j.jid }]"
+            @click="toggleExpand(j.jid)" style="cursor:pointer">
+            <div class="table-jid">
+              <span class="expand-icon">{{ expandedJid === j.jid ? '▼' : '▶' }}</span>
+              <a :href="JURL + j.jid" target="_blank" rel="noopener noreferrer" class="jid-link" @click.stop>{{ j.jid }}</a>
+            </div>
+            <div style="font-size:10px;text-align:center">{{ j.court }}</div>
+            <div class="table-reason">{{ j.cause }}</div>
+            <div style="font-size:10px;text-align:center">{{ j.ending }}</div>
+            <div v-if="activeType === 'criminal_litigation'" style="text-align:center;font-size:10px">{{ j.cls }}</div>
+            <div v-if="activeType !== 'criminal_litigation'" style="text-align:center;font-size:10px">{{ j.lawyer }}</div>
+          </div>
+          <!-- Expanded detail row -->
+          <div v-if="expandedJid === j.jid" class="detail-row">
+            <template v-if="activeType === 'criminal_litigation'">
+              <div class="detail-grid">
+                <div class="detail-item" v-if="j.law"><span class="detail-key">定罪法條</span><span class="detail-val">{{ j.law }}</span></div>
+                <div class="detail-item" v-if="j.result"><span class="detail-key">裁判結果</span><span class="detail-val">{{ j.result }}</span></div>
+                <div class="detail-item" v-if="j.sentence"><span class="detail-key">宣告刑期</span><span class="detail-val">{{ j.sentence }}</span></div>
+                <div class="detail-item"><span class="detail-key">緩刑</span><span class="detail-val">{{ j.probation ? '有' : '無' }}</span></div>
+                <div class="detail-item" v-if="j.defense"><span class="detail-key">辯護代理</span><span class="detail-val">{{ j.defense }}</span></div>
+                <div class="detail-item" v-if="j.defendants"><span class="detail-key">被告人數</span><span class="detail-val">{{ j.defendants }}</span></div>
+              </div>
+              <div v-if="j.tags?.length" class="detail-tags">
+                <span v-for="tag in j.tags" :key="tag" class="detail-tag">{{ tag }}</span>
+              </div>
+            </template>
+            <template v-else-if="activeType === 'civil_litigation'">
+              <div class="detail-grid">
+                <div class="detail-item" v-if="j.causeCat"><span class="detail-key">案由分類</span><span class="detail-val">{{ j.causeCat }}</span></div>
+                <div class="detail-item" v-if="j.lawyer"><span class="detail-key">律師代理</span><span class="detail-val">{{ j.lawyer }}</span></div>
+                <div class="detail-item" v-if="j.amountTier"><span class="detail-key">標的金額級距</span><span class="detail-val">{{ j.amountTier }}</span></div>
+                <div class="detail-item" v-if="j.amount"><span class="detail-key">標的金額</span><span class="detail-val">{{ j.amount }}</span></div>
+              </div>
+            </template>
+            <template v-else-if="activeType === 'family_litigation'">
+              <div class="detail-grid">
+                <div class="detail-item" v-if="j.causeCat"><span class="detail-key">案由分類</span><span class="detail-val">{{ j.causeCat }}</span></div>
+                <div class="detail-item" v-if="j.lawyer"><span class="detail-key">律師代理</span><span class="detail-val">{{ j.lawyer }}</span></div>
+                <div class="detail-item" v-if="j.initiator"><span class="detail-key">主動離婚者</span><span class="detail-val">{{ j.initiator }}</span></div>
+                <div class="detail-item" v-if="j.divorceReason"><span class="detail-key">離婚原因</span><span class="detail-val">{{ j.divorceReason }}</span></div>
+              </div>
+            </template>
+          </div>
+        </template>
       </div>
     </div>
   </div>
@@ -903,7 +1069,12 @@ const filterDefs = computed(() => getFilterDefs(activeType.value))
 .stat-accent { position: absolute; top: 0; left: 0; width: 4px; height: 100%; }
 .stat-label { font-size: 10px; color: #6b7280; margin-bottom: 4px; }
 .stat-value { font-size: 22px; font-weight: 700; color: #111827; }
+
+/* Chart grid: default auto-fill, criminal forced 2-column */
 .chart-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 14px; margin-bottom: 16px; }
+.chart-grid-2col { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 900px) { .chart-grid-2col { grid-template-columns: 1fr; } }
+
 .chart-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; }
 .chart-title { font-size: 14px; font-weight: 700; color: #111827; }
 .chart-sub { font-size: 11px; color: #6b7280; margin-bottom: 10px; }
@@ -915,18 +1086,43 @@ const filterDefs = computed(() => getFilterDefs(activeType.value))
 .legend-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; justify-content: center; }
 .legend-item { display: flex; align-items: center; gap: 4px; font-size: 10px; color: #4b5563; }
 .legend-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
-.table-wrap { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; }
+
+/* Table (centered) */
+.table-wrap { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; max-width: 1000px; margin: 0 auto; }
 .table-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid #e5e7eb; }
-.table-col-header { display: grid; grid-template-columns: 2fr 1fr 2fr 1fr 1fr; padding: 8px 16px; background: #f9fafb; border-bottom: 1px solid #e5e7eb; font-size: 10px; font-weight: 700; color: #6b7280; gap: 8px; }
-.table-row { display: grid; grid-template-columns: 2fr 1fr 2fr 1fr 1fr; padding: 8px 16px; border-bottom: 1px solid #f1f5f9; font-size: 11px; gap: 8px; align-items: center; }
+.table-col-header { display: grid; padding: 8px 16px; background: #f9fafb; border-bottom: 1px solid #e5e7eb; font-size: 10px; font-weight: 700; color: #6b7280; gap: 8px; }
+.grid-criminal { grid-template-columns: 2.5fr 1fr 2fr 1fr 0.8fr; }
+.grid-civil { grid-template-columns: 2.5fr 1fr 2fr 1fr 1fr; }
+.table-row { display: grid; padding: 8px 16px; border-bottom: 1px solid #f1f5f9; font-size: 11px; gap: 8px; align-items: center; }
 .table-row:hover { background: #f8fafc; }
-.table-jid { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.table-row.expanded { background: #eff6ff; }
+.table-jid { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 4px; }
+.expand-icon { font-size: 8px; color: #9ca3af; flex-shrink: 0; width: 10px; }
 .jid-link { color: #2563eb; text-decoration: none; font-size: 10px; font-weight: 500; }
 .jid-link:hover { text-decoration: underline; }
-.table-reason { font-size: 10px; color: #4b5563; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.table-reason { font-size: 10px; color: #4b5563; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; }
 .btn-page { padding: 4px 10px; border-radius: 6px; border: 1px solid #d1d5db; background: #fff; color: #4b5563; font-size: 11px; cursor: pointer; font-family: inherit; }
 .btn-page:disabled { opacity: 0.4; cursor: not-allowed; }
-/* Bar chart items for divorce/inherit analysis */
+
+/* Detail row */
+.detail-row { padding: 10px 16px 10px 32px; background: #f0f7ff; border-bottom: 1px solid #dbeafe; }
+.detail-grid { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+.detail-item { display: flex; align-items: center; gap: 4px; }
+.detail-key { font-size: 10px; color: #6b7280; font-weight: 600; }
+.detail-val { font-size: 10px; color: #111827; }
+.detail-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.detail-tag { padding: 2px 8px; border-radius: 999px; font-size: 9px; background: #dbeafe; color: #1e40af; font-weight: 600; }
+
+/* Map */
+.map-container { position: relative; }
+.map-tooltip { position: absolute; z-index: 100; background: #fff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.12); pointer-events: none; min-width: 200px; max-width: 300px; }
+.tooltip-title { font-size: 13px; font-weight: 700; color: #111827; margin-bottom: 4px; border-bottom: 1px solid #e5e7eb; padding-bottom: 4px; }
+.tooltip-row { font-size: 11px; color: #374151; margin-bottom: 2px; }
+.tooltip-cats { margin-top: 6px; }
+.tooltip-cat-title { font-size: 10px; font-weight: 700; color: #6b7280; margin-bottom: 2px; }
+.tooltip-cat { font-size: 10px; color: #374151; margin-bottom: 1px; }
+
+/* Bar chart items */
 .bar-item { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
 .bar-label { font-size: 10px; color: #374151; min-width: 80px; text-align: right; flex-shrink: 0; }
 .bar-track { flex: 1; height: 14px; background: #f1f5f9; border-radius: 4px; overflow: hidden; }
