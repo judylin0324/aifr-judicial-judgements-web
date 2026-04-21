@@ -31,36 +31,59 @@ const CASE_TYPES = {
   family_litigation:   { label: '家事訴訟', category: 'family',   icon: '👨‍👩‍👧' },
 }
 const PALETTE = ['#4F86F7','#F28C52','#35B679','#D9A93A','#E45C5C','#8B5CF6','#06B6D4','#EC4899','#84CC16']
+const PIE_COLORS = ['#4F86F7','#F28C52','#35B679','#D9A93A','#E45C5C','#8B5CF6']
 const AG_MIT_CATS = ['無加重無減輕','僅有加重法條','僅有減輕法條','有加重有減輕']
 const AG_MIT_COLORS = {'無加重無減輕':'#4F86F7','僅有加重法條':'#F28C52','僅有減輕法條':'#35B679','有加重有減輕':'#D9A93A'}
 const JURL = 'https://judgment.judicial.gov.tw/FJUD/data.aspx?ty=JD&id='
 
-// Taiwan court positions (approximate SVG coordinates on 400x560 viewBox)
+// Taiwan court positions on 400x560 viewBox
 const COURT_POS = {
-  '基隆地方法院': { x: 310, y: 68 },
-  '臺北地方法院': { x: 270, y: 90 },
-  '士林地方法院': { x: 280, y: 78 },
-  '新北地方法院': { x: 260, y: 100 },
-  '桃園地方法院': { x: 230, y: 115 },
-  '新竹地方法院': { x: 218, y: 140 },
-  '苗栗地方法院': { x: 198, y: 168 },
-  '臺中地方法院': { x: 178, y: 205 },
-  '南投地方法院': { x: 198, y: 240 },
-  '彰化地方法院': { x: 158, y: 225 },
-  '雲林地方法院': { x: 142, y: 260 },
-  '嘉義地方法院': { x: 148, y: 290 },
-  '臺南地方法院': { x: 138, y: 325 },
-  '高雄地方法院': { x: 155, y: 365 },
-  '橋頭地方法院': { x: 145, y: 350 },
-  '屏東地方法院': { x: 170, y: 400 },
-  '宜蘭地方法院': { x: 300, y: 120 },
-  '花蓮地方法院': { x: 290, y: 210 },
-  '臺東地方法院': { x: 250, y: 350 },
-  '澎湖地方法院': { x: 60, y: 290 },
-  '金門地方法院': { x: 32, y: 140 },
-  '連江地方法院': { x: 32, y: 80 },
-  '福建金門地方法院': { x: 32, y: 140 },
-  '福建連江地方法院': { x: 32, y: 80 },
+  '基隆地方法院': { x: 320, y: 72 },
+  '臺北地方法院': { x: 278, y: 88 },
+  '士林地方法院': { x: 290, y: 76 },
+  '新北地方法院': { x: 264, y: 98 },
+  '桃園地方法院': { x: 235, y: 118 },
+  '新竹地方法院': { x: 222, y: 145 },
+  '苗栗地方法院': { x: 204, y: 172 },
+  '臺中地方法院': { x: 184, y: 208 },
+  '南投地方法院': { x: 206, y: 242 },
+  '彰化地方法院': { x: 162, y: 228 },
+  '雲林地方法院': { x: 146, y: 262 },
+  '嘉義地方法院': { x: 152, y: 292 },
+  '臺南地方法院': { x: 142, y: 328 },
+  '高雄地方法院': { x: 160, y: 368 },
+  '橋頭地方法院': { x: 148, y: 352 },
+  '屏東地方法院': { x: 178, y: 405 },
+  '宜蘭地方法院': { x: 312, y: 126 },
+  '花蓮地方法院': { x: 296, y: 218 },
+  '臺東地方法院': { x: 256, y: 360 },
+  '澎湖地方法院': { x: 58, y: 295 },
+  '金門地方法院': { x: 34, y: 145 },
+  '連江地方法院': { x: 34, y: 85 },
+  '福建金門地方法院': { x: 34, y: 145 },
+  '福建連江地方法院': { x: 34, y: 85 },
+}
+
+// Taiwan outline SVG path (detailed)
+const TW_OUTLINE = "M295,52 C305,48 318,52 328,62 C335,70 332,82 328,92 C324,98 318,108 314,120 C310,132 306,148 302,165 C298,182 294,200 290,218 C286,236 280,254 272,272 C264,290 254,306 242,324 C230,342 218,358 206,374 C194,390 184,406 178,420 C172,434 170,446 168,456 C166,466 168,474 164,482 C160,488 152,486 146,476 C140,466 134,450 128,432 C122,414 118,396 116,376 C114,356 116,338 118,318 C120,298 126,278 132,258 C138,238 146,220 156,202 C166,184 178,168 192,154 C206,140 216,132 226,122 C236,112 246,100 256,88 C266,76 278,62 295,52 Z"
+const TW_EAST = "M328,62 C334,72 330,86 326,98 L314,120 L306,148 L300,172 L294,200 L288,228 L280,256 L268,282 L254,308 L240,330 L224,352 L210,372 L198,390 L186,408"
+
+// Heatmap color scale (green → yellow → orange → red)
+function heatColor(ratio) {
+  const r = Math.max(0, Math.min(1, ratio))
+  if (r < 0.25) {
+    const t = r / 0.25
+    return `rgb(${Math.round(76 + t * 104)},${Math.round(175 + t * 55)},${Math.round(80 - t * 10)})`
+  } else if (r < 0.5) {
+    const t = (r - 0.25) / 0.25
+    return `rgb(${Math.round(180 + t * 60)},${Math.round(230 - t * 50)},${Math.round(70 - t * 30)})`
+  } else if (r < 0.75) {
+    const t = (r - 0.5) / 0.25
+    return `rgb(${Math.round(240 + t * 15)},${Math.round(180 - t * 60)},${Math.round(40 - t * 10)})`
+  } else {
+    const t = (r - 0.75) / 0.25
+    return `rgb(${Math.round(255 - t * 30)},${Math.round(120 - t * 80)},${Math.round(30 + t * 10)})`
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -83,7 +106,15 @@ function formatMetricValue(v, mode, digits = 1) {
 function getMetricBaseStep(mode, maxVal) { const safe = Math.max(1, maxVal || 1); if (mode === 'imprisonment') return 12; if (mode === 'detention') return 5; if (mode === 'fine') { if (safe <= 2000) return 100; if (safe <= 20000) return 1000; if (safe <= 200000) return 10000; return 50000 }; return 1 }
 function buildNiceTicks(maxVal, mode, target = 6) { const safe = Math.max(1, maxVal || 1); const base = getMetricBaseStep(mode, safe); const step = Math.max(base, Math.ceil(safe / target / base) * base); const maxTick = Math.max(step, Math.ceil(safe / step) * step); const ticks = []; for (let t = 0; t <= maxTick + 1e-9; t += step) ticks.push(Number(t.toFixed(10))); return { ticks, maxTick, step } }
 function buildRangeTicks(minVal, maxVal, mode, target = 6) { const safeMin = Math.max(0, minVal ?? 0), safeMax = Math.max(safeMin + 1, maxVal ?? 1); const base = getMetricBaseStep(mode, safeMax); const step = Math.max(base, Math.ceil(Math.max(safeMax - safeMin, safeMax) / target / base) * base); let start = Math.floor(safeMin / step) * step, end = Math.ceil(safeMax / step) * step; if (start === end) end = start + step; const ticks = []; for (let t = start; t <= end + 1e-9; t += step) ticks.push(Number(t.toFixed(10))); return { ticks, start, end, step } }
-function qtl(sorted, q) { if (!sorted.length) return 0; const p = (sorted.length - 1) * q; const b = Math.floor(p); return sorted[b + 1] !== undefined ? sorted[b] + (p - b) * (sorted[b + 1] - sorted[b]) : sorted[b] }
+
+// Pie chart arc path
+function pieArc(cx, cy, r, startAngle, endAngle) {
+  const s = startAngle - Math.PI / 2, e = endAngle - Math.PI / 2
+  const x1 = cx + r * Math.cos(s), y1 = cy + r * Math.sin(s)
+  const x2 = cx + r * Math.cos(e), y2 = cy + r * Math.sin(e)
+  const large = endAngle - startAngle > Math.PI ? 1 : 0
+  return `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z`
+}
 
 // ═══════════════════════════════════════════════════════════
 //  Section 4 — Filter Definitions per Case Type
@@ -156,12 +187,8 @@ const activeType = ref('criminal_litigation')
 const loading = ref(false)
 const error = ref(null)
 const availableTypes = ref([])
-
-// Data from API
 const filterOptions = ref({})
 const dashData = ref(null)
-
-// Sidebar
 const sideOpen = ref(true)
 const openAcc = ref(null)
 const searchStates = ref({})
@@ -169,21 +196,17 @@ const showFilterTip = ref(false)
 function getSearch(key) { return searchStates.value[key] || '' }
 function setSearch(key, val) { searchStates.value = { ...searchStates.value, [key]: val } }
 function toggleAcc(key) { openAcc.value = openAcc.value === key ? null : key }
-
-// Filters
 const filters = ref({})
 const logicModes = ref({})
 const appliedFilters = ref(null)
 const appliedLogic = ref(null)
 const pg = ref(0)
 const PG = 10
-
-// Expandable judgment rows
 const expandedJid = ref(null)
 function toggleExpand(jid) { expandedJid.value = expandedJid.value === jid ? null : jid }
-
-// Map tooltip state
 const mapTooltip = ref({ show: false, x: 0, y: 0, data: null })
+// Family map toggle
+const familyMapMode = ref('divorce')
 
 function getFilter(key) { return filters.value[key] || [] }
 function setFilter(key, val) { filters.value = { ...filters.value, [key]: val } }
@@ -194,42 +217,29 @@ function toggleChip(arr, val) {
 }
 function getLogicMode(key) { return LOCKED_OR_KEYS.has(key) ? 'or' : (logicModes.value[key] || 'or') }
 function setLogicMode(key, val) { logicModes.value = { ...logicModes.value, [key]: LOCKED_OR_KEYS.has(key) ? 'or' : val } }
-
 function filteredOptions(options, searchKey) {
   if (!options?.length) return []
   const q = getSearch(searchKey)?.trim()?.toLowerCase()
   if (!q) return options
   return options.filter(o => o.val.toLowerCase().includes(q))
 }
-
 function allClear() {
-  filters.value = {}
-  logicModes.value = {}
-  appliedFilters.value = null
-  appliedLogic.value = null
-  pg.value = 0
-  showFilterTip.value = false
-  searchStates.value = {}
-  openAcc.value = null
-  expandedJid.value = null
+  filters.value = {}; logicModes.value = {}; appliedFilters.value = null; appliedLogic.value = null
+  pg.value = 0; showFilterTip.value = false; searchStates.value = {}; openAcc.value = null; expandedJid.value = null
+  familyMapMode.value = 'divorce'
 }
 
 // ═══════════════════════════════════════════════════════════
-//  Section 6 — Filter Summary Builder
+//  Section 6 — Filter Summary
 // ═══════════════════════════════════════════════════════════
 const filterSummary = computed(() => {
   if (!appliedFilters.value) return '所選條件：全部案件'
   const parts = []
-  const af = appliedFilters.value
-  const lg = appliedLogic.value || {}
-  const defs = getFilterDefs(activeType.value)
-  for (const section of defs) {
+  const af = appliedFilters.value, lg = appliedLogic.value || {}
+  for (const section of getFilterDefs(activeType.value)) {
     for (const item of section.items) {
       const sel = af[item.key]
-      if (sel?.length) {
-        const sep = (lg[item.key] === 'and') ? '&' : '+'
-        parts.push(`${item.label}：${sel.join(sep)}`)
-      }
+      if (sel?.length) parts.push(`${item.label}：${sel.join((lg[item.key] === 'and') ? '&' : '+')}`)
     }
   }
   if (af.ym_min || af.ym_max) {
@@ -247,65 +257,35 @@ async function loadTypes() {
   try {
     availableTypes.value = await api('/api/types')
     const first = availableTypes.value.find(t => t.available)
-    if (first) {
-      activeType.value = first.key
-      activeCat.value = CASE_TYPES[first.key]?.category || 'criminal'
-    }
+    if (first) { activeType.value = first.key; activeCat.value = CASE_TYPES[first.key]?.category || 'criminal' }
   } catch (e) { error.value = '無法載入案件類型：' + e.message }
 }
-
 async function loadOptions() {
-  try {
-    filterOptions.value = await api(`/api/${activeType.value}/options`)
-  } catch (e) { error.value = '無法載入篩選選項：' + e.message }
+  try { filterOptions.value = await api(`/api/${activeType.value}/options`) } catch (e) { error.value = '無法載入篩選選項：' + e.message }
 }
-
 async function loadData() {
-  loading.value = true
-  error.value = null
+  loading.value = true; error.value = null
   try {
-    const params = {}
-    const af = appliedFilters.value || {}
+    const params = {}; const af = appliedFilters.value || {}
     for (const [k, v] of Object.entries(af)) {
-      if (k === 'ym_min' || k === 'ym_max') {
-        if (v) params[k] = v
-      } else if (Array.isArray(v) && v.length) {
-        params[k] = v.join(',')
-      }
+      if (k === 'ym_min' || k === 'ym_max') { if (v) params[k] = v }
+      else if (Array.isArray(v) && v.length) { params[k] = v.join(',') }
     }
-    const lg = appliedLogic.value || {}
-    const logicParam = {}
-    let hasLogic = false
-    for (const [k, v] of Object.entries(lg)) {
-      if (v === 'and') { logicParam[k] = 'and'; hasLogic = true }
-    }
+    const lg = appliedLogic.value || {}; const logicParam = {}; let hasLogic = false
+    for (const [k, v] of Object.entries(lg)) { if (v === 'and') { logicParam[k] = 'and'; hasLogic = true } }
     if (hasLogic) params.logic = JSON.stringify(logicParam)
-    params.page = pg.value
-    params.page_size = PG
+    params.page = pg.value; params.page_size = PG
     dashData.value = await api(`/api/${activeType.value}/data`, params)
-  } catch (e) {
-    error.value = '無法載入資料：' + e.message
-  } finally {
-    loading.value = false
-  }
+  } catch (e) { error.value = '無法載入資料：' + e.message } finally { loading.value = false }
 }
-
 function handleSubmit() {
-  appliedFilters.value = JSON.parse(JSON.stringify({
-    ...filters.value,
-    ym_min: filters.value.ym_min || '',
-    ym_max: filters.value.ym_max || '',
-  }))
+  appliedFilters.value = JSON.parse(JSON.stringify({ ...filters.value, ym_min: filters.value.ym_min || '', ym_max: filters.value.ym_max || '' }))
   appliedLogic.value = JSON.parse(JSON.stringify(logicModes.value))
-  pg.value = 0
-  sideOpen.value = false
-  loadData()
+  pg.value = 0; sideOpen.value = false; loadData()
 }
-
 function handleDL() {
   if (!dashData.value?.judgments?.items?.length) return
-  const items = dashData.value.judgments.items
-  const jids = items.map(i => i.jid)
+  const jids = dashData.value.judgments.items.map(i => i.jid)
   const csv = '\uFEFF裁判書ID,裁判書全文網址\n' + jids.map(id => `"${id}","${JURL}${id}"`).join('\n')
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }))
   const a = document.createElement('a'); a.href = url; a.download = `判決清單_${activeType.value}.csv`; a.click(); URL.revokeObjectURL(url)
@@ -314,86 +294,48 @@ function handleDL() {
 // ═══════════════════════════════════════════════════════════
 //  Section 8 — SVG Chart Builders
 // ═══════════════════════════════════════════════════════════
-
-// Heatmap color
 function heatmapColor(val, maxVal, baseColor = '79,134,247') {
   const ratio = val / (maxVal || 1)
   return `rgba(${baseColor},${0.08 + ratio * 0.82})`
 }
-
-// Stacked bar SVG builder
 function stackedBarSvg(chartData) {
   if (!chartData?.data?.length || !chartData?.segments?.length) return null
-  const segments = chartData.segments
-  const data = chartData.data
-  const LM = 130, RM = 20, TM = 10, rowH = 32
-  const W = 600, H = TM + rowH * data.length + 30
-  const barW = W - LM - RM
+  const segments = chartData.segments, data = chartData.data
+  const LM = 130, RM = 20, TM = 10, rowH = 32, W = 600, H = TM + rowH * data.length + 30, barW = W - LM - RM
   const rows = data.map((d, idx) => {
-    const y = TM + rowH * idx
-    let accX = LM
+    const y = TM + rowH * idx; let accX = LM
     const bars = segments.map((seg, si) => {
-      const tenths = d[seg] || 0
-      const w = (tenths / 1000) * barW
-      const x = accX; accX += w
+      const tenths = d[seg] || 0; const w = (tenths / 1000) * barW; const x = accX; accX += w
       return { x, w, y: y + 4, h: rowH - 8, fill: PALETTE[si % PALETTE.length], seg, tenths, count: d.__counts?.[seg] || 0 }
     })
     return { name: d.name, y, bars, labelLines: wrapTextLines(d.name, 9, 2) }
   })
   return { W, H, rows, LM, barW, segments }
 }
-
-// Dual-axis bar chart SVG builder
 function dualAxisBarSvg(chartData) {
   if (!chartData?.data?.length || !chartData?.segments?.length) return null
-  const data = chartData.data
-  const segments = chartData.segments
-  const LM = 120, RM = 60, TM = 20, BM = 50
-  const groupW = 70, gap = 12
+  const data = chartData.data, segments = chartData.segments
+  const LM = 100, RM = 40, TM = 20, BM = 50, groupW = 70, gap = 12
   const W = LM + data.length * (groupW + gap) + RM
   const maxCount = Math.max(...data.map(d => d.total), 1)
-  const plotH = 260
-  const H = TM + plotH + BM
-
-  // Y-axis ticks for counts
-  const step = Math.max(1, Math.ceil(maxCount / 5 / Math.pow(10, Math.floor(Math.log10(maxCount / 5)))) * Math.pow(10, Math.floor(Math.log10(maxCount / 5))))
-  const yTicks = []
-  for (let t = 0; t <= maxCount * 1.1; t += step) yTicks.push(t)
+  const plotH = 260, H = TM + plotH + BM
+  const step = Math.max(1, Math.ceil(maxCount / 5 / Math.pow(10, Math.floor(Math.log10(maxCount / 5 || 1)))) * Math.pow(10, Math.floor(Math.log10(maxCount / 5 || 1))))
+  const yTicks = []; for (let t = 0; t <= maxCount * 1.1; t += step) yTicks.push(t)
   const yMax = yTicks[yTicks.length - 1] || maxCount
-
   const yS = v => TM + plotH - (v / yMax) * plotH
   const pctS = v => TM + plotH - (v / 100) * plotH
-
   const groups = data.map((d, gi) => {
-    const gx = LM + gi * (groupW + gap)
-    const segW = groupW / segments.length
+    const gx = LM + gi * (groupW + gap); const segW = groupW / segments.length
     const bars = segments.map((seg, si) => {
-      const count = d[seg] || 0
-      const h = (count / yMax) * plotH
-      return {
-        x: gx + si * segW,
-        y: TM + plotH - h,
-        w: Math.max(1, segW - 1),
-        h,
-        fill: PALETTE[si % PALETTE.length],
-        seg,
-        count
-      }
+      const count = d[seg] || 0; const h = (count / yMax) * plotH
+      return { x: gx + si * segW, y: TM + plotH - h, w: Math.max(1, segW - 1), h, fill: PALETTE[si % PALETTE.length], seg, count }
     })
-    // Proportion line point
-    const lineX = gx + groupW / 2
-    const lineY = pctS(d.pct)
-    return { name: d.name, gx, bars, lineX, lineY, total: d.total, pct: d.pct }
+    return { name: d.name, gx, bars, lineX: gx + groupW / 2, lineY: pctS(d.pct), total: d.total, pct: d.pct }
   })
-
-  // Proportion line path
   const linePoints = groups.map(g => `${g.lineX},${g.lineY}`).join(' L ')
   const linePath = groups.length > 1 ? `M ${linePoints}` : ''
-
   return { W, H, LM, RM, TM, BM, plotH, groups, yTicks, yMax, yS, pctS, segments, linePath }
 }
-
-// Violin SVG builder
 function violinSvgData(violinData) {
   if (!violinData?.length) return null
   const LM = 210, RM = 78, TM = 28, BM = 76, rowH = 104, W = 860
@@ -401,8 +343,7 @@ function violinSvgData(violinData) {
   const allV = violinData.flatMap(d => d.values)
   const gMin = Math.min(...allV), gMax = Math.max(...allV), rawRange = gMax - gMin || 1
   const { ticks, start, end } = buildRangeTicks(gMin, gMax, 'imprisonment', 6)
-  const domain = Math.max(1, end - start)
-  const xS = v => LM + ((v - start) / domain) * plotW
+  const domain = Math.max(1, end - start); const xS = v => LM + ((v - start) / domain) * plotW
   function densityBins(values) {
     const bins = Array(16).fill(0); const step = rawRange / 16 || 1
     values.forEach(v => { let idx = Math.floor((v - gMin) / step); if (idx < 0) idx = 0; if (idx >= 16) idx = 15; bins[idx]++ })
@@ -420,15 +361,12 @@ function violinSvgData(violinData) {
   const tickData = ticks.filter(t => { const x = xS(t); return x >= LM - 2 && x <= W - RM + 2 }).map(t => ({ x: xS(t), label: formatMetricValue(t, 'imprisonment', 1) }))
   return { W, H, LM, RM, TM, BM, rows, tickData, axisLabel: '刑期（月）' }
 }
-
-// Box-whisker SVG builder
 function boxSvgData(boxData) {
   if (!boxData?.length) return null
   const LM = 210, RM = 22, TM = 28, BM = 110, rowH = 104, W = 860
   const H = TM + BM + rowH * boxData.length; const plotW = W - LM - RM
   const safeMax = Math.max(1, ...boxData.map(d => Math.max(d.whiskerHigh, ...(d.outliers || []), d.q3)))
-  const { ticks, maxTick } = buildNiceTicks(safeMax, 'imprisonment', 6)
-  const xS = v => LM + (Math.max(0, v) / maxTick) * plotW
+  const { ticks, maxTick } = buildNiceTicks(safeMax, 'imprisonment', 6); const xS = v => LM + (Math.max(0, v) / maxTick) * plotW
   const rows = boxData.map((d, idx) => {
     const y = TM + rowH * idx + rowH / 2
     const q1X = xS(d.q1), medianX = xS(d.median), q3X = xS(d.q3), wlX = xS(d.whiskerLow), whX = xS(d.whiskerHigh)
@@ -447,17 +385,11 @@ function boxSvgData(boxData) {
 const charts = computed(() => dashData.value?.charts || {})
 const stats = computed(() => dashData.value?.stats || {})
 const judgments = computed(() => dashData.value?.judgments || { items: [], total: 0, totalPages: 1 })
-
-// Criminal chart computeds
 const vSvg = computed(() => violinSvgData(charts.value.violin))
 const bSvg = computed(() => boxSvgData(charts.value.boxWhisker))
 
-// ═══════════════════════════════════════════════════════════
-//  Section 10 — Stats Card Definitions per Type
-// ═══════════════════════════════════════════════════════════
 const statCards = computed(() => {
-  const s = stats.value
-  const ct = activeType.value
+  const s = stats.value, ct = activeType.value
   if (ct === 'criminal_litigation') return [
     { l: '裁判書篇數', v: s.judgmentCount, a: '#4F86F7' },
     { l: '被告人數', v: s.defendantCount, a: '#F28C52' },
@@ -476,9 +408,6 @@ const statCards = computed(() => {
   return []
 })
 
-// ═══════════════════════════════════════════════════════════
-//  Section 11 — Chart Layout Definitions per Type
-// ═══════════════════════════════════════════════════════════
 const chartLayout = computed(() => {
   const ct = activeType.value
   if (ct === 'criminal_litigation') return [
@@ -488,77 +417,48 @@ const chartLayout = computed(() => {
     { type: 'boxWhisker', key: 'boxWhisker', title: '法條有期徒刑盒鬚圖', sub: '中位數、四分位距與離群值' },
   ]
   if (ct === 'civil_litigation') return [
-    { type: 'taiwanMap', key: 'courtMap', title: '法院案件地圖', sub: '各法院前五案由標的、律師率與勝訴率' },
-    { type: 'heatmap', key: 'amountLawyerHeatmap', title: '標的金額×律師代理交叉', sub: '金額級距與律師代理情形' },
     { type: 'dualAxisBar', key: 'lawyerEndingBar', title: '律師代理×終結情形', sub: '各律師代理情形案件數與占比' },
+    { type: 'taiwanMap', key: 'courtMap', title: '法院案件地圖', sub: '各法院前五案由、律師代理率' },
+    { type: 'heatmap', key: 'amountLawyerHeatmap', title: '標的金額×律師代理交叉', sub: '金額級距與律師代理情形' },
+    { type: 'heatmap', key: 'actionSubjectHeatmap', title: '案由動作×標的交叉', sub: '動作與標的交叉分析' },
   ]
   if (ct === 'family_litigation') return [
-    { type: 'taiwanMap', key: 'divorceCourtMap', title: '離婚案件法院地圖', sub: '各法院離婚案件比例、律師率與勝訴率' },
-    { type: 'divorceAnalysis', key: 'divorceAnalysis', title: '離婚案件分析', sub: '離婚原因、主動方與終結情形' },
-    { type: 'taiwanMap', key: 'inheritCourtMap', title: '繼承案件法院地圖', sub: '各法院繼承案件比例、律師率與勝訴率' },
     { type: 'dualAxisBar', key: 'lawyerCauseBar', title: '律師代理×案由', sub: '各律師代理情形案件數與占比' },
+    { type: 'causeDist', key: 'causeDist', title: '案件案由分布', sub: '各案由類別案件數' },
+    { type: 'familyMap', key: 'courtMap', title: '法院案件地圖', sub: '' },
+    { type: 'divorceAnalysis', key: 'divorceAnalysis', title: '離婚案件分析', sub: '主動離婚者與離婚原因交叉' },
   ]
   return []
 })
 
 // ═══════════════════════════════════════════════════════════
-//  Section 12 — Map Tooltip Helpers
+//  Section 10 — Map Tooltip & Lifecycle
 // ═══════════════════════════════════════════════════════════
 function showMapTooltip(evt, courtData) {
-  const rect = evt.currentTarget.closest('svg').getBoundingClientRect()
-  mapTooltip.value = {
-    show: true,
-    x: evt.clientX - rect.left + 15,
-    y: evt.clientY - rect.top - 10,
-    data: courtData
-  }
+  const rect = evt.currentTarget.closest('.map-container').getBoundingClientRect()
+  mapTooltip.value = { show: true, x: evt.clientX - rect.left + 15, y: evt.clientY - rect.top - 10, data: courtData }
 }
-function hideMapTooltip() {
-  mapTooltip.value = { show: false, x: 0, y: 0, data: null }
-}
+function hideMapTooltip() { mapTooltip.value = { show: false, x: 0, y: 0, data: null } }
 
-// ═══════════════════════════════════════════════════════════
-//  Section 13 — Lifecycle
-// ═══════════════════════════════════════════════════════════
-onMounted(async () => {
-  await loadTypes()
-  await loadOptions()
-  await loadData()
-})
-
-watch(activeType, async () => {
-  allClear()
-  dashData.value = null
-  filterOptions.value = {}
-  await loadOptions()
-  await loadData()
-})
-
+onMounted(async () => { await loadTypes(); await loadOptions(); await loadData() })
+watch(activeType, async () => { allClear(); dashData.value = null; filterOptions.value = {}; await loadOptions(); await loadData() })
 watch(pg, () => { loadData() })
-
-function switchType(type) {
-  if (type === activeType.value) return
-  activeType.value = type
-  activeCat.value = CASE_TYPES[type]?.category || 'criminal'
-}
-
+function switchType(type) { if (type === activeType.value) return; activeType.value = type; activeCat.value = CASE_TYPES[type]?.category || 'criminal' }
 const filterDefs = computed(() => getFilterDefs(activeType.value))
+const heatmapTitle = computed(() => charts.value?.caseHeatmap?.heatmapTitle || '案件分類 × 終結情形')
 
-// Criminal heatmap title from API
-const heatmapTitle = computed(() => {
-  return charts.value?.caseHeatmap?.heatmapTitle || '案件分類 × 終結情形'
+// Computed map data for family toggle
+const familyActiveMapData = computed(() => {
+  if (familyMapMode.value === 'inherit') return charts.value.inheritCourtMap || []
+  return charts.value.divorceCourtMap || []
 })
+const familyActiveMapTitle = computed(() => familyMapMode.value === 'inherit' ? '繼承案件法院分布' : '離婚案件法院分布')
 </script>
 
 <template>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet" />
-
   <div class="dashboard">
-    <!-- Sidebar toggle tab -->
-    <div @click="sideOpen = !sideOpen" class="sidebar-tab" :class="{ open: sideOpen }">
-      {{ sideOpen ? '◀ 收 起' : '篩 選 ▶' }}
-    </div>
-
+    <div @click="sideOpen = !sideOpen" class="sidebar-tab" :class="{ open: sideOpen }">{{ sideOpen ? '◀ 收 起' : '篩 選 ▶' }}</div>
     <!-- ██ Sidebar ██ -->
     <div class="sidebar" :style="{ width: sideOpen ? '320px' : '0', minWidth: sideOpen ? '320px' : '0' }">
       <div class="sidebar-inner">
@@ -567,47 +467,28 @@ const heatmapTitle = computed(() => {
             <h2 style="font-size:15px;font-weight:700;margin:0;color:#111827">篩選條件</h2>
             <button @click="showFilterTip = !showFilterTip" class="btn-sm">{{ showFilterTip ? '收合' : '？ 說明' }}</button>
           </div>
-          <div v-if="showFilterTip" class="filter-tip">
-            <strong>篩選邏輯說明</strong><br/>
-            ・「+」聯集：符合任一條件即匹配<br/>
-            ・「&amp;」交集：須同時符合所有條件<br/>
-            ・帶有<span class="locked-star">*</span>的篩選項僅支援聯集(+)<br/>
-            ・未顯示之選項表示資料中無此適用
-          </div>
+          <div v-if="showFilterTip" class="filter-tip"><strong>篩選邏輯說明</strong><br/>・「+」聯集：符合任一條件即匹配<br/>・「&amp;」交集：須同時符合所有條件<br/>・帶有<span class="locked-star">*</span>的篩選項僅支援聯集(+)</div>
           <div style="display:flex;gap:8px">
             <button @click="handleSubmit" class="btn-submit">送出篩選</button>
             <button @click="allClear(); loadData()" class="btn-reset">重置</button>
           </div>
         </div>
-
         <div class="sidebar-scroll">
-          <!-- 終結年月 -->
           <div class="filter-group" v-if="filterOptions.ym?.length">
             <div class="filter-label">終結年月（區間）</div>
             <div style="display:flex;gap:6px;align-items:center">
-              <select :value="filters.ym_min || ''" @change="setFilter('ym_min', $event.target.value)" class="sel">
-                <option value="">最早</option>
-                <option v-for="y in filterOptions.ym" :key="y" :value="y">{{ y.replace('/', '年') + '月' }}</option>
-              </select>
+              <select :value="filters.ym_min || ''" @change="setFilter('ym_min', $event.target.value)" class="sel"><option value="">最早</option><option v-for="y in filterOptions.ym" :key="y" :value="y">{{ y.replace('/', '年') + '月' }}</option></select>
               <span style="color:#9ca3af;font-size:11px">～</span>
-              <select :value="filters.ym_max || ''" @change="setFilter('ym_max', $event.target.value)" class="sel">
-                <option value="">最晚</option>
-                <option v-for="y in filterOptions.ym" :key="y" :value="y">{{ y.replace('/', '年') + '月' }}</option>
-              </select>
+              <select :value="filters.ym_max || ''" @change="setFilter('ym_max', $event.target.value)" class="sel"><option value="">最晚</option><option v-for="y in filterOptions.ym" :key="y" :value="y">{{ y.replace('/', '年') + '月' }}</option></select>
             </div>
           </div>
-
-          <!-- Dynamic filter sections -->
           <div class="acc-group" v-for="section in filterDefs" :key="section.title">
             <div class="section-title" :class="section.color">{{ section.title }}</div>
             <div class="acc-border">
               <template v-for="item in section.items" :key="item.key">
                 <div class="acc-item" v-if="filterOptions[item.optsKey]?.length">
                   <div @click="toggleAcc(item.key)" class="acc-trigger">
-                    <div style="display:flex;align-items:center;gap:6px">
-                      <span class="acc-arrow" :class="{ open: openAcc === item.key }">▶</span>
-                      <span class="acc-title">{{ item.label }}</span>
-                    </div>
+                    <div style="display:flex;align-items:center;gap:6px"><span class="acc-arrow" :class="{ open: openAcc === item.key }">▶</span><span class="acc-title">{{ item.label }}</span></div>
                     <span v-if="getFilter(item.key).length" class="acc-badge">{{ getFilter(item.key).length }}</span>
                   </div>
                   <div v-if="openAcc === item.key" class="acc-body">
@@ -615,23 +496,12 @@ const heatmapTitle = computed(() => {
                       <span class="filter-label">{{ item.label }}</span>
                       <div style="display:flex;align-items:center;gap:4px">
                         <input v-if="filterOptions[item.optsKey].length > 10" type="text" placeholder="搜尋…" :value="getSearch(item.key)" @input="setSearch(item.key, $event.target.value)" class="search-input" />
-                        <template v-if="item.canToggle">
-                          <div class="logic-switch">
-                            <button @click="setLogicMode(item.key, 'or')" :class="{ active: getLogicMode(item.key) === 'or' }" class="logic-or">聯集(+)</button>
-                            <button @click="setLogicMode(item.key, 'and')" :class="{ active: getLogicMode(item.key) === 'and' }" class="logic-and">交集(&amp;)</button>
-                          </div>
-                        </template>
+                        <template v-if="item.canToggle"><div class="logic-switch"><button @click="setLogicMode(item.key, 'or')" :class="{ active: getLogicMode(item.key) === 'or' }" class="logic-or">聯集(+)</button><button @click="setLogicMode(item.key, 'and')" :class="{ active: getLogicMode(item.key) === 'and' }" class="logic-and">交集(&amp;)</button></div></template>
                         <span v-else class="locked-badge" title="此項目僅支援聯集">聯集(+)<span class="locked-star">*</span></span>
                       </div>
                     </div>
                     <div :class="['chip-wrap', { scrollable: filterOptions[item.optsKey].length > 10 }]">
-                      <button v-for="o in filteredOptions(filterOptions[item.optsKey], item.key)" :key="o.val"
-                        @click="setFilter(item.key, toggleChip(getFilter(item.key), o.val))"
-                        :class="['chip', { active: getFilter(item.key).includes(o.val) }]">
-                        {{ o.val }} <span class="chip-count">({{ o.count }})</span>
-                      </button>
-                      <span v-if="filterOptions[item.optsKey].length > 10 && filteredOptions(filterOptions[item.optsKey], item.key).length === 0"
-                        style="font-size:10px;color:#9ca3af">無符合的選項</span>
+                      <button v-for="o in filteredOptions(filterOptions[item.optsKey], item.key)" :key="o.val" @click="setFilter(item.key, toggleChip(getFilter(item.key), o.val))" :class="['chip', { active: getFilter(item.key).includes(o.val) }]">{{ o.val }} <span class="chip-count">({{ o.count }})</span></button>
                     </div>
                   </div>
                 </div>
@@ -644,43 +514,27 @@ const heatmapTitle = computed(() => {
 
     <!-- ██ Main Area ██ -->
     <div class="main-area">
-      <!-- Header -->
       <div class="main-header">
         <h1 style="font-size:22px;font-weight:700;margin:0;color:#0f172a">裁判書量化實證研究平台</h1>
-        <div style="display:flex;gap:8px;align-items:center">
-          <button @click="handleDL" :disabled="!dashData?.judgments?.items?.length" class="btn-dl">下載判決清單</button>
-        </div>
+        <button @click="handleDL" :disabled="!dashData?.judgments?.items?.length" class="btn-dl">下載判決清單</button>
       </div>
-
-      <!-- Case type tabs -->
       <div class="type-tabs">
         <template v-for="cat in CATEGORIES" :key="cat.key">
           <template v-for="t in availableTypes.filter(at => CASE_TYPES[at.key]?.category === cat.key)" :key="t.key">
-            <button @click="switchType(t.key)" :class="['type-tab', { active: activeType === t.key }]">
-              {{ CASE_TYPES[t.key]?.icon }} {{ CASE_TYPES[t.key]?.label }}
-              <span class="tab-count">({{ t.rowCount?.toLocaleString() }})</span>
-            </button>
+            <button @click="switchType(t.key)" :class="['type-tab', { active: activeType === t.key }]">{{ CASE_TYPES[t.key]?.icon }} {{ CASE_TYPES[t.key]?.label }} <span class="tab-count">({{ t.rowCount?.toLocaleString() }})</span></button>
           </template>
         </template>
       </div>
-
-      <!-- Filter summary -->
       <div class="filter-summary">{{ filterSummary }}</div>
-
-      <!-- Loading -->
       <div v-if="loading" class="loading-overlay">載入中…</div>
       <div v-if="error" class="error-bar">{{ error }}</div>
 
-      <!-- Stats (no 篩選後資料筆數) -->
+      <!-- Stats -->
       <div class="stats-grid" v-if="dashData">
-        <div v-for="s in statCards" :key="s.l" class="stat-card">
-          <div class="stat-accent" :style="{ background: s.a }"></div>
-          <div class="stat-label">{{ s.l }}</div>
-          <div class="stat-value">{{ s.raw ? s.v : (typeof s.v === 'number' ? s.v.toLocaleString() : (s.v ?? '-')) }}</div>
-        </div>
+        <div v-for="s in statCards" :key="s.l" class="stat-card"><div class="stat-accent" :style="{ background: s.a }"></div><div class="stat-label">{{ s.l }}</div><div class="stat-value">{{ s.raw ? s.v : (typeof s.v === 'number' ? s.v.toLocaleString() : (s.v ?? '-')) }}</div></div>
       </div>
 
-      <!-- Charts grid (criminal: 2 columns fixed; others: auto) -->
+      <!-- Charts -->
       <div :class="['chart-grid', { 'chart-grid-2col': activeType === 'criminal_litigation' }]" v-if="dashData">
         <template v-for="ch in chartLayout" :key="ch.key">
 
@@ -691,11 +545,10 @@ const heatmapTitle = computed(() => {
             <div v-if="!charts[ch.key]?.xLabels?.length" class="no-data">無資料</div>
             <div v-else style="overflow-x:auto">
               <table class="heatmap">
-                <thead><tr><th style="width:100px"></th><th v-for="x in charts[ch.key].xLabels" :key="x">{{ x }}</th></tr></thead>
+                <thead><tr><th style="width:100px"></th><th v-for="x in charts[ch.key].xLabels" :key="x" class="hm-col-header">{{ x }}</th></tr></thead>
                 <tbody><tr v-for="(y, yi) in charts[ch.key].yLabels" :key="y">
                   <td class="hm-label">{{ y }}</td>
-                  <td v-for="(x, xi) in charts[ch.key].xLabels" :key="x"
-                    :title="`${y} × ${x}：${charts[ch.key].matrix[yi][xi]} 件`"
+                  <td v-for="(x, xi) in charts[ch.key].xLabels" :key="x" :title="`${y} × ${x}：${charts[ch.key].matrix[yi][xi]} 件`"
                     :style="{ background: heatmapColor(charts[ch.key].matrix[yi][xi], charts[ch.key].max), color: (charts[ch.key].matrix[yi][xi] / (charts[ch.key].max || 1)) > 0.5 ? '#fff' : '#111827' }"
                     class="hm-cell">{{ charts[ch.key].matrix[yi][xi] }}</td>
                 </tr></tbody>
@@ -710,20 +563,12 @@ const heatmapTitle = computed(() => {
             <template v-if="charts[ch.key]?.data?.length">
               <svg v-if="stackedBarSvg(charts[ch.key])" :viewBox="`0 0 ${stackedBarSvg(charts[ch.key]).W} ${stackedBarSvg(charts[ch.key]).H}`" width="100%" preserveAspectRatio="xMinYMin meet">
                 <template v-for="(row, ri) in stackedBarSvg(charts[ch.key]).rows" :key="ri">
-                  <text :x="stackedBarSvg(charts[ch.key]).LM - 6" :y="row.y + 20" text-anchor="end" font-size="11" fill="#111827" font-weight="500">
-                    <tspan v-for="(line, li) in row.labelLines" :key="li" :x="stackedBarSvg(charts[ch.key]).LM - 6" :dy="li === 0 ? 0 : 13">{{ line }}</tspan>
-                  </text>
-                  <rect v-for="b in row.bars" :key="b.seg" :x="b.x" :y="b.y" :width="Math.max(0, b.w)" :height="b.h" :fill="b.fill" rx="2">
-                    <title>{{ b.seg }}：{{ fmtPctTenths(b.tenths) }}（{{ b.count }} 件）</title>
-                  </rect>
+                  <text :x="stackedBarSvg(charts[ch.key]).LM - 6" :y="row.y + 20" text-anchor="end" font-size="11" fill="#111827" font-weight="500"><tspan v-for="(line, li) in row.labelLines" :key="li" :x="stackedBarSvg(charts[ch.key]).LM - 6" :dy="li === 0 ? 0 : 13">{{ line }}</tspan></text>
+                  <rect v-for="b in row.bars" :key="b.seg" :x="b.x" :y="b.y" :width="Math.max(0, b.w)" :height="b.h" :fill="b.fill" rx="2"><title>{{ b.seg }}：{{ fmtPctTenths(b.tenths) }}（{{ b.count }} 件）</title></rect>
                 </template>
                 <text v-for="p in [0, 25, 50, 75, 100]" :key="p" :x="stackedBarSvg(charts[ch.key]).LM + (p / 100) * stackedBarSvg(charts[ch.key]).barW" :y="stackedBarSvg(charts[ch.key]).H - 6" text-anchor="middle" font-size="10" fill="#6b7280">{{ p }}%</text>
               </svg>
-              <div class="legend-row">
-                <div v-for="(seg, si) in charts[ch.key].segments" :key="seg" class="legend-item">
-                  <span class="legend-dot" :style="{ background: PALETTE[si % PALETTE.length] }"></span>{{ seg }}
-                </div>
-              </div>
+              <div class="legend-row"><div v-for="(seg, si) in charts[ch.key].segments" :key="seg" class="legend-item"><span class="legend-dot" :style="{ background: PALETTE[si % PALETTE.length] }"></span>{{ seg }}</div></div>
             </template>
             <div v-else class="no-data">無資料</div>
           </div>
@@ -735,115 +580,129 @@ const heatmapTitle = computed(() => {
             <template v-if="charts[ch.key]?.data?.length">
               <div style="width:100%;overflow-x:auto" v-if="dualAxisBarSvg(charts[ch.key])">
                 <svg width="100%" :viewBox="`0 0 ${dualAxisBarSvg(charts[ch.key]).W} ${dualAxisBarSvg(charts[ch.key]).H}`" preserveAspectRatio="xMinYMin meet">
-                  <!-- Y-axis grid lines + labels (left: counts) -->
                   <template v-for="(t, ti) in dualAxisBarSvg(charts[ch.key]).yTicks" :key="'yt'+ti">
-                    <line :x1="dualAxisBarSvg(charts[ch.key]).LM" :x2="dualAxisBarSvg(charts[ch.key]).W - dualAxisBarSvg(charts[ch.key]).RM"
-                      :y1="dualAxisBarSvg(charts[ch.key]).yS(t)" :y2="dualAxisBarSvg(charts[ch.key]).yS(t)"
-                      stroke="#e5e7eb" stroke-dasharray="3 3" />
-                    <text :x="dualAxisBarSvg(charts[ch.key]).LM - 8" :y="dualAxisBarSvg(charts[ch.key]).yS(t) + 4"
-                      text-anchor="end" font-size="10" fill="#6b7280">{{ t.toLocaleString() }}</text>
+                    <line :x1="dualAxisBarSvg(charts[ch.key]).LM" :x2="dualAxisBarSvg(charts[ch.key]).W - dualAxisBarSvg(charts[ch.key]).RM" :y1="dualAxisBarSvg(charts[ch.key]).yS(t)" :y2="dualAxisBarSvg(charts[ch.key]).yS(t)" stroke="#e5e7eb" stroke-dasharray="3 3" />
+                    <text :x="dualAxisBarSvg(charts[ch.key]).LM - 8" :y="dualAxisBarSvg(charts[ch.key]).yS(t) + 4" text-anchor="end" font-size="10" fill="#6b7280">{{ t.toLocaleString() }}</text>
                   </template>
-                  <!-- Right Y-axis labels (percentage) -->
-                  <template v-for="p in [0, 20, 40, 60, 80, 100]" :key="'pct'+p">
-                    <text :x="dualAxisBarSvg(charts[ch.key]).W - dualAxisBarSvg(charts[ch.key]).RM + 8"
-                      :y="dualAxisBarSvg(charts[ch.key]).pctS(p) + 4"
-                      text-anchor="start" font-size="10" fill="#E45C5C">{{ p }}%</text>
-                  </template>
-                  <!-- Bars -->
                   <template v-for="(g, gi) in dualAxisBarSvg(charts[ch.key]).groups" :key="'g'+gi">
-                    <rect v-for="b in g.bars" :key="b.seg" :x="b.x" :y="b.y" :width="b.w" :height="b.h" :fill="b.fill" rx="2">
-                      <title>{{ g.name }} - {{ b.seg }}：{{ b.count.toLocaleString() }} 件</title>
-                    </rect>
-                    <text :x="g.gx + 35" :y="dualAxisBarSvg(charts[ch.key]).TM + dualAxisBarSvg(charts[ch.key]).plotH + 16"
-                      text-anchor="middle" font-size="10" fill="#374151" font-weight="500">
-                      <tspan v-for="(line, li) in wrapTextLines(g.name, 6, 2)" :key="li" :x="g.gx + 35" :dy="li === 0 ? 0 : 12">{{ line }}</tspan>
-                    </text>
+                    <rect v-for="b in g.bars" :key="b.seg" :x="b.x" :y="b.y" :width="b.w" :height="b.h" :fill="b.fill" rx="2"><title>{{ g.name }} - {{ b.seg }}：{{ b.count.toLocaleString() }} 件</title></rect>
+                    <text :x="g.gx + 35" :y="dualAxisBarSvg(charts[ch.key]).TM + dualAxisBarSvg(charts[ch.key]).plotH + 16" text-anchor="middle" font-size="10" fill="#374151" font-weight="500"><tspan v-for="(line, li) in wrapTextLines(g.name, 6, 2)" :key="li" :x="g.gx + 35" :dy="li === 0 ? 0 : 12">{{ line }}</tspan></text>
                   </template>
-                  <!-- Proportion line -->
-                  <path v-if="dualAxisBarSvg(charts[ch.key]).linePath" :d="dualAxisBarSvg(charts[ch.key]).linePath"
-                    fill="none" stroke="#E45C5C" stroke-width="2.5" stroke-linejoin="round" />
-                  <!-- Proportion dots -->
+                  <path v-if="dualAxisBarSvg(charts[ch.key]).linePath" :d="dualAxisBarSvg(charts[ch.key]).linePath" fill="none" stroke="#E45C5C" stroke-width="2.5" stroke-linejoin="round" />
                   <template v-for="(g, gi) in dualAxisBarSvg(charts[ch.key]).groups" :key="'dot'+gi">
                     <circle :cx="g.lineX" :cy="g.lineY" r="4" fill="#E45C5C" stroke="#fff" stroke-width="1.5" />
                     <text :x="g.lineX" :y="g.lineY - 8" text-anchor="middle" font-size="9" fill="#E45C5C" font-weight="700">{{ g.pct }}%</text>
                   </template>
-                  <!-- Axis labels -->
-                  <text :x="6" :y="dualAxisBarSvg(charts[ch.key]).TM + dualAxisBarSvg(charts[ch.key]).plotH / 2" text-anchor="middle" font-size="11" fill="#6b7280" transform="rotate(-90, 10, 160)">案件數</text>
-                  <text :x="dualAxisBarSvg(charts[ch.key]).W - 6" :y="dualAxisBarSvg(charts[ch.key]).TM + dualAxisBarSvg(charts[ch.key]).plotH / 2" text-anchor="middle" font-size="11" fill="#E45C5C" transform="rotate(90, 396, 160)">占比(%)</text>
                 </svg>
               </div>
               <div class="legend-row">
-                <div v-for="(seg, si) in charts[ch.key].segments" :key="seg" class="legend-item">
-                  <span class="legend-dot" :style="{ background: PALETTE[si % PALETTE.length] }"></span>{{ seg }}
-                </div>
+                <div v-for="(seg, si) in charts[ch.key].segments" :key="seg" class="legend-item"><span class="legend-dot" :style="{ background: PALETTE[si % PALETTE.length] }"></span>{{ seg }}</div>
                 <div class="legend-item"><span style="width:16px;height:3px;background:#E45C5C;display:inline-block;border-radius:2px"></span> 占比線</div>
               </div>
             </template>
             <div v-else class="no-data">無資料</div>
           </div>
 
-          <!-- ══ Taiwan Map ══ -->
+          <!-- ══ Taiwan Map (civil) ══ -->
           <div class="chart-card" v-if="ch.type === 'taiwanMap'">
             <div class="chart-title">{{ ch.title }}</div>
             <div class="chart-sub">{{ ch.sub }}</div>
             <div v-if="!charts[ch.key]?.length" class="no-data">無資料</div>
             <div v-else class="map-container">
-              <svg viewBox="0 0 400 560" width="100%" style="max-width:500px;margin:0 auto;display:block">
-                <!-- Taiwan outline (simplified) -->
-                <path d="M270,55 C295,50 320,60 325,75 C330,95 310,105 305,130 C300,155 295,170 290,195 C285,220 280,240 270,265 C260,290 245,310 230,335 C215,360 200,380 190,400 C180,420 175,440 172,455 C169,470 175,480 168,490 C160,495 148,480 140,460 C132,440 125,415 120,390 C115,365 118,345 120,320 C122,295 128,275 132,255 C136,235 140,215 148,195 C156,175 165,160 178,145 C191,130 200,125 210,115 C220,105 230,95 240,82 C250,69 255,57 270,55 Z"
-                  fill="#e8f4f8" stroke="#94a3b8" stroke-width="1.5" />
-                <!-- Court markers -->
+              <svg viewBox="0 0 400 520" width="100%" style="max-width:480px;margin:0 auto;display:block">
+                <defs>
+                  <filter id="shadow"><feDropShadow dx="1" dy="1" stdDeviation="2" flood-opacity="0.15"/></filter>
+                  <linearGradient id="seaGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e8f4fd"/><stop offset="100%" stop-color="#d0e8f8"/></linearGradient>
+                </defs>
+                <rect width="400" height="520" fill="url(#seaGrad)" rx="12"/>
+                <path :d="TW_OUTLINE" fill="#f0f4e8" stroke="#8faa7a" stroke-width="1.8" filter="url(#shadow)"/>
                 <template v-for="court in charts[ch.key]" :key="court.court">
-                  <g v-if="COURT_POS[court.court]"
-                    @mouseenter="showMapTooltip($event, court)"
-                    @mouseleave="hideMapTooltip"
-                    style="cursor:pointer">
-                    <circle
-                      :cx="COURT_POS[court.court].x"
-                      :cy="COURT_POS[court.court].y"
-                      :r="Math.max(6, Math.min(22, Math.sqrt(court.pct) * 6))"
-                      fill="rgba(79,134,247,0.6)" stroke="#2563eb" stroke-width="1.5" />
-                    <text :x="COURT_POS[court.court].x" :y="COURT_POS[court.court].y + Math.max(6, Math.min(22, Math.sqrt(court.pct) * 6)) + 12"
-                      text-anchor="middle" font-size="9" fill="#374151" font-weight="600">
-                      {{ court.court.replace('地方法院','') }}
-                    </text>
+                  <g v-if="COURT_POS[court.court]" @mouseenter="showMapTooltip($event, court)" @mouseleave="hideMapTooltip" style="cursor:pointer">
+                    <circle :cx="COURT_POS[court.court].x" :cy="COURT_POS[court.court].y" :r="Math.max(8, Math.min(26, Math.sqrt(court.pct) * 7))"
+                      :fill="heatColor(court.pct / Math.max(...charts[ch.key].map(c => c.pct)))" :stroke="heatColor(Math.min(1, court.pct / Math.max(...charts[ch.key].map(c => c.pct)) + 0.2))" stroke-width="2" opacity="0.85"/>
+                    <text :x="COURT_POS[court.court].x" :y="COURT_POS[court.court].y + Math.max(8, Math.min(26, Math.sqrt(court.pct) * 7)) + 12" text-anchor="middle" font-size="9" fill="#374151" font-weight="600">{{ court.court.replace('地方法院','') }}</text>
                   </g>
                 </template>
               </svg>
+              <!-- Color legend -->
+              <div class="map-legend">
+                <span style="font-size:9px;color:#6b7280">少</span>
+                <div class="map-legend-bar"></div>
+                <span style="font-size:9px;color:#6b7280">多</span>
+              </div>
               <!-- Tooltip -->
-              <div v-if="mapTooltip.show && mapTooltip.data" class="map-tooltip"
-                :style="{ left: mapTooltip.x + 'px', top: mapTooltip.y + 'px' }">
+              <div v-if="mapTooltip.show && mapTooltip.data" class="map-tooltip" :style="{ left: mapTooltip.x + 'px', top: mapTooltip.y + 'px' }">
                 <div class="tooltip-title">{{ mapTooltip.data.court }}</div>
                 <div class="tooltip-row">案件數：{{ mapTooltip.data.count.toLocaleString() }}（{{ mapTooltip.data.pct }}%）</div>
                 <div v-if="mapTooltip.data.lawyerRate !== undefined" class="tooltip-row">律師代理率：{{ mapTooltip.data.lawyerRate }}%</div>
-                <div v-if="mapTooltip.data.withLawyerWinRate !== undefined" class="tooltip-row">有律師勝訴率：{{ mapTooltip.data.withLawyerWinRate }}%</div>
-                <div v-if="mapTooltip.data.noLawyerWinRate !== undefined" class="tooltip-row">無律師勝訴率：{{ mapTooltip.data.noLawyerWinRate }}%</div>
                 <div v-if="mapTooltip.data.topCats?.length" class="tooltip-cats">
-                  <div class="tooltip-cat-title">前五類別：</div>
-                  <div v-for="cat in mapTooltip.data.topCats.slice(0, 5)" :key="cat.name" class="tooltip-cat">
-                    {{ cat.name }}：{{ cat.count }}（{{ cat.pct }}%）
-                  </div>
+                  <div class="tooltip-cat-title">主要案由：</div>
+                  <div v-for="cat in mapTooltip.data.topCats" :key="cat.name" class="tooltip-cat">{{ cat.name }}：{{ cat.count }}（{{ cat.pct }}%）</div>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- ══ Violin (criminal only) ══ -->
+          <!-- ══ Family Map (divorce/inherit toggle) ══ -->
+          <div class="chart-card" v-if="ch.type === 'familyMap'">
+            <div class="chart-title">{{ familyActiveMapTitle }}</div>
+            <div style="display:flex;gap:6px;margin-bottom:8px">
+              <button @click="familyMapMode = 'divorce'" :class="['map-toggle-btn', { active: familyMapMode === 'divorce' }]">離婚案件</button>
+              <button @click="familyMapMode = 'inherit'" :class="['map-toggle-btn', { active: familyMapMode === 'inherit' }]">繼承案件</button>
+            </div>
+            <div v-if="!familyActiveMapData?.length" class="no-data">無資料</div>
+            <div v-else class="map-container">
+              <svg viewBox="0 0 400 520" width="100%" style="max-width:480px;margin:0 auto;display:block">
+                <defs><filter id="shadow2"><feDropShadow dx="1" dy="1" stdDeviation="2" flood-opacity="0.15"/></filter><linearGradient id="seaGrad2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e8f4fd"/><stop offset="100%" stop-color="#d0e8f8"/></linearGradient></defs>
+                <rect width="400" height="520" fill="url(#seaGrad2)" rx="12"/>
+                <path :d="TW_OUTLINE" fill="#f0f4e8" stroke="#8faa7a" stroke-width="1.8" filter="url(#shadow2)"/>
+                <template v-for="court in familyActiveMapData" :key="court.court">
+                  <g v-if="COURT_POS[court.court]" @mouseenter="showMapTooltip($event, court)" @mouseleave="hideMapTooltip" style="cursor:pointer">
+                    <circle :cx="COURT_POS[court.court].x" :cy="COURT_POS[court.court].y" :r="Math.max(8, Math.min(26, Math.sqrt(court.pct) * 7))"
+                      :fill="heatColor(court.pct / Math.max(...familyActiveMapData.map(c => c.pct)))" stroke-width="2" :stroke="heatColor(Math.min(1, court.pct / Math.max(...familyActiveMapData.map(c => c.pct)) + 0.2))" opacity="0.85"/>
+                    <text :x="COURT_POS[court.court].x" :y="COURT_POS[court.court].y + Math.max(8, Math.min(26, Math.sqrt(court.pct) * 7)) + 12" text-anchor="middle" font-size="9" fill="#374151" font-weight="600">{{ court.court.replace('地方法院','') }}</text>
+                  </g>
+                </template>
+              </svg>
+              <div class="map-legend"><span style="font-size:9px;color:#6b7280">少</span><div class="map-legend-bar"></div><span style="font-size:9px;color:#6b7280">多</span></div>
+              <div v-if="mapTooltip.show && mapTooltip.data" class="map-tooltip" :style="{ left: mapTooltip.x + 'px', top: mapTooltip.y + 'px' }">
+                <div class="tooltip-title">{{ mapTooltip.data.court }}</div>
+                <div class="tooltip-row">案件數：{{ mapTooltip.data.count.toLocaleString() }}（{{ mapTooltip.data.pct }}%）</div>
+                <div v-if="mapTooltip.data.lawyerRate !== undefined" class="tooltip-row">律師代理率：{{ mapTooltip.data.lawyerRate }}%</div>
+                <!-- Divorce: initiator lawyer rates -->
+                <template v-if="familyMapMode === 'divorce' && mapTooltip.data.initiatorLawyerRates">
+                  <div class="tooltip-cat-title" style="margin-top:4px">主動離婚者請律師比率：</div>
+                  <div v-for="(rate, init) in mapTooltip.data.initiatorLawyerRates" :key="init" class="tooltip-cat">{{ init }}：{{ rate }}%</div>
+                </template>
+              </div>
+            </div>
+          </div>
+
+          <!-- ══ Cause Distribution (family) ══ -->
+          <div class="chart-card" v-if="ch.type === 'causeDist'">
+            <div class="chart-title">{{ ch.title }}</div>
+            <div class="chart-sub">{{ ch.sub }}</div>
+            <div v-if="!charts.causeDist?.length" class="no-data">無資料</div>
+            <template v-else>
+              <div v-for="(item, idx) in charts.causeDist" :key="item.name" class="bar-item">
+                <div class="bar-label">{{ item.name }}</div>
+                <div class="bar-track"><div class="bar-fill" :style="{ width: Math.max(2, item.count / (charts.causeDist[0]?.count || 1) * 100) + '%', background: PALETTE[idx % PALETTE.length] }"></div></div>
+                <div class="bar-count">{{ item.count.toLocaleString() }}</div>
+              </div>
+            </template>
+          </div>
+
+          <!-- ══ Violin ══ -->
           <div class="chart-card" v-if="ch.type === 'violin'">
             <div class="chart-title">{{ ch.title }}</div>
             <div class="chart-sub">{{ ch.sub }}</div>
             <div v-if="!vSvg" class="no-data">無資料</div>
             <div v-else style="width:100%;overflow-x:auto">
               <svg width="100%" :viewBox="`0 0 ${vSvg.W} ${vSvg.H}`" preserveAspectRatio="xMinYMin meet">
-                <template v-for="(t, ti) in vSvg.tickData" :key="ti">
-                  <line :x1="t.x" :x2="t.x" :y1="vSvg.TM - 6" :y2="vSvg.H - vSvg.BM + 12" stroke="#e5e7eb" stroke-dasharray="3 3" />
-                  <text :x="t.x" :y="vSvg.H - vSvg.BM + 34" text-anchor="middle" font-size="16" fill="#374151" font-weight="600">{{ t.label }}</text>
-                </template>
+                <template v-for="(t, ti) in vSvg.tickData" :key="ti"><line :x1="t.x" :x2="t.x" :y1="vSvg.TM - 6" :y2="vSvg.H - vSvg.BM + 12" stroke="#e5e7eb" stroke-dasharray="3 3" /><text :x="t.x" :y="vSvg.H - vSvg.BM + 34" text-anchor="middle" font-size="16" fill="#374151" font-weight="600">{{ t.label }}</text></template>
                 <text :x="(vSvg.LM + vSvg.W - vSvg.RM) / 2" :y="vSvg.H - 14" text-anchor="middle" font-size="16" fill="#6b7280" font-weight="600">{{ vSvg.axisLabel }}</text>
                 <template v-for="d in vSvg.rows" :key="d.name">
-                  <text :x="vSvg.LM - 10" :y="d.y" text-anchor="end" font-size="18" fill="#111827" font-weight="600">
-                    <tspan v-for="(line, li) in d.labelLines" :key="li" :x="vSvg.LM - 10" :dy="li === 0 ? -14 : 18">{{ line }}</tspan>
-                  </text>
+                  <text :x="vSvg.LM - 10" :y="d.y" text-anchor="end" font-size="18" fill="#111827" font-weight="600"><tspan v-for="(line, li) in d.labelLines" :key="li" :x="vSvg.LM - 10" :dy="li === 0 ? -14 : 18">{{ line }}</tspan></text>
                   <line :x1="vSvg.LM" :x2="vSvg.W - vSvg.RM" :y1="d.y" :y2="d.y" stroke="#f1f5f9" />
                   <path :d="d.path" fill="rgba(79,134,247,0.22)" stroke="rgba(79,134,247,0.90)" stroke-width="1.5" />
                   <line :x1="d.medianX" :x2="d.medianX" :y1="d.y - 22" :y2="d.y + 22" stroke="#D9A93A" stroke-width="2.4" />
@@ -856,7 +715,7 @@ const heatmapTitle = computed(() => {
             </div>
           </div>
 
-          <!-- ══ Box-Whisker (criminal only) ══ -->
+          <!-- ══ Box-Whisker ══ -->
           <div class="chart-card" v-if="ch.type === 'boxWhisker'">
             <div class="chart-title">{{ ch.title }}</div>
             <div class="chart-sub">{{ ch.sub }}</div>
@@ -864,20 +723,13 @@ const heatmapTitle = computed(() => {
             <template v-else>
               <div style="width:100%;overflow-x:auto">
                 <svg width="100%" :viewBox="`0 0 ${bSvg.W} ${bSvg.H}`" preserveAspectRatio="xMinYMin meet">
-                  <template v-for="(t, ti) in bSvg.tickData" :key="ti">
-                    <line :x1="t.x" :x2="t.x" :y1="bSvg.TM" :y2="bSvg.H - bSvg.BM + 10" stroke="#e5e7eb" stroke-dasharray="3 3" />
-                    <text :x="t.x" :y="bSvg.H - bSvg.BM + 30" text-anchor="middle" font-size="16" fill="#374151" font-weight="600">{{ t.label }}</text>
-                  </template>
+                  <template v-for="(t, ti) in bSvg.tickData" :key="ti"><line :x1="t.x" :x2="t.x" :y1="bSvg.TM" :y2="bSvg.H - bSvg.BM + 10" stroke="#e5e7eb" stroke-dasharray="3 3" /><text :x="t.x" :y="bSvg.H - bSvg.BM + 30" text-anchor="middle" font-size="16" fill="#374151" font-weight="600">{{ t.label }}</text></template>
                   <line :x1="bSvg.LM" :x2="bSvg.W - bSvg.RM" :y1="bSvg.H - bSvg.BM + 10" :y2="bSvg.H - bSvg.BM + 10" stroke="#9ca3af" />
                   <text :x="(bSvg.LM + bSvg.W - bSvg.RM) / 2" :y="bSvg.H - 16" text-anchor="middle" font-size="16" fill="#6b7280" font-weight="600">{{ bSvg.axisLabel }}</text>
                   <template v-for="d in bSvg.rows" :key="d.law">
                     <line :x1="bSvg.LM" :x2="bSvg.W - bSvg.RM" :y1="d.y" :y2="d.y" stroke="#f1f5f9" />
-                    <text :x="bSvg.LM - 10" :y="d.y" text-anchor="end" font-size="18" fill="#111827" font-weight="600">
-                      <tspan v-for="(line, li) in d.labelLines" :key="li" :x="bSvg.LM - 10" :dy="li === 0 ? -14 : 18">{{ line }}</tspan>
-                    </text>
-                    <line :x1="d.wlX" :x2="d.whX" :y1="d.y" :y2="d.y" stroke="#111827" stroke-width="1.8" />
-                    <line :x1="d.wlX" :x2="d.wlX" :y1="d.y - 10" :y2="d.y + 10" stroke="#111827" stroke-width="1.8" />
-                    <line :x1="d.whX" :x2="d.whX" :y1="d.y - 10" :y2="d.y + 10" stroke="#111827" stroke-width="1.8" />
+                    <text :x="bSvg.LM - 10" :y="d.y" text-anchor="end" font-size="18" fill="#111827" font-weight="600"><tspan v-for="(line, li) in d.labelLines" :key="li" :x="bSvg.LM - 10" :dy="li === 0 ? -14 : 18">{{ line }}</tspan></text>
+                    <line :x1="d.wlX" :x2="d.whX" :y1="d.y" :y2="d.y" stroke="#111827" stroke-width="1.8" /><line :x1="d.wlX" :x2="d.wlX" :y1="d.y - 10" :y2="d.y + 10" stroke="#111827" stroke-width="1.8" /><line :x1="d.whX" :x2="d.whX" :y1="d.y - 10" :y2="d.y + 10" stroke="#111827" stroke-width="1.8" />
                     <rect :x="d.q1X" :y="d.y - 12" :width="d.boxW" height="24" rx="4" :fill="d.color" opacity="0.88" stroke="#111827" stroke-width="1" />
                     <line :x1="d.medianX" :x2="d.medianX" :y1="d.y - 12" :y2="d.y + 12" stroke="#111827" stroke-width="2.4" />
                     <circle v-for="(ol, oi) in d.outlierPts" :key="oi" :cx="ol.cx" :cy="d.y" r="4.5" fill="#fff" stroke="#111827" stroke-width="1.6" />
@@ -894,36 +746,50 @@ const heatmapTitle = computed(() => {
             </template>
           </div>
 
-          <!-- ══ Divorce Analysis (family only) ══ -->
+          <!-- ══ Divorce Analysis (family) ══ -->
           <div class="chart-card" v-if="ch.type === 'divorceAnalysis'">
             <div class="chart-title">{{ ch.title }}</div>
             <div class="chart-sub">{{ ch.sub }}</div>
             <div v-if="!charts.divorceAnalysis" class="no-data">無資料</div>
             <template v-else>
-              <div style="display:flex;flex-wrap:wrap;gap:16px">
-                <div v-if="charts.divorceAnalysis.reasonDist?.length" style="flex:1;min-width:200px">
-                  <div style="font-size:12px;font-weight:700;margin-bottom:6px;color:#374151">離婚原因</div>
-                  <div v-for="item in charts.divorceAnalysis.reasonDist" :key="item.name" class="bar-item">
-                    <div class="bar-label">{{ item.name }}</div>
-                    <div class="bar-track"><div class="bar-fill" :style="{ width: Math.max(2, item.count / (charts.divorceAnalysis.reasonDist[0]?.count || 1) * 100) + '%' }"></div></div>
-                    <div class="bar-count">{{ item.count }}</div>
+              <!-- Pie chart: initiator distribution -->
+              <div v-if="charts.divorceAnalysis.initiatorDist?.length" style="display:flex;align-items:center;gap:20px;margin-bottom:16px;flex-wrap:wrap">
+                <svg width="160" height="160" viewBox="0 0 160 160">
+                  <template v-for="(item, idx) in charts.divorceAnalysis.initiatorDist" :key="item.name">
+                    <path :d="pieArc(80, 80, 70,
+                      charts.divorceAnalysis.initiatorDist.slice(0, idx).reduce((a, b) => a + b.count, 0) / charts.divorceAnalysis.initiatorDist.reduce((a, b) => a + b.count, 0) * Math.PI * 2,
+                      charts.divorceAnalysis.initiatorDist.slice(0, idx + 1).reduce((a, b) => a + b.count, 0) / charts.divorceAnalysis.initiatorDist.reduce((a, b) => a + b.count, 0) * Math.PI * 2)"
+                      :fill="PIE_COLORS[idx % PIE_COLORS.length]" stroke="#fff" stroke-width="2" opacity="0.85">
+                      <title>{{ item.name }}：{{ item.count }} 件</title>
+                    </path>
+                  </template>
+                  <text x="80" y="78" text-anchor="middle" font-size="11" fill="#374151" font-weight="700">主動</text>
+                  <text x="80" y="92" text-anchor="middle" font-size="11" fill="#374151" font-weight="700">離婚者</text>
+                </svg>
+                <div>
+                  <div v-for="(item, idx) in charts.divorceAnalysis.initiatorDist" :key="item.name" style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                    <span class="legend-dot" :style="{ background: PIE_COLORS[idx % PIE_COLORS.length] }"></span>
+                    <span style="font-size:12px;color:#374151;font-weight:600">{{ item.name }}</span>
+                    <span style="font-size:11px;color:#6b7280">{{ item.count }} 件（{{ (item.count / charts.divorceAnalysis.initiatorDist.reduce((a, b) => a + b.count, 0) * 100).toFixed(1) }}%）</span>
                   </div>
                 </div>
-                <div v-if="charts.divorceAnalysis.initiatorDist?.length" style="flex:1;min-width:200px">
-                  <div style="font-size:12px;font-weight:700;margin-bottom:6px;color:#374151">主動離婚者</div>
-                  <div v-for="item in charts.divorceAnalysis.initiatorDist" :key="item.name" class="bar-item">
-                    <div class="bar-label">{{ item.name }}</div>
-                    <div class="bar-track"><div class="bar-fill orange" :style="{ width: Math.max(2, item.count / (charts.divorceAnalysis.initiatorDist[0]?.count || 1) * 100) + '%' }"></div></div>
-                    <div class="bar-count">{{ item.count }}</div>
-                  </div>
+              </div>
+              <!-- Cross analysis: for each initiator, stacked bar of reason × ending -->
+              <div v-if="charts.divorceAnalysis.crossAnalysis?.length">
+                <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px">主動離婚者 × 離婚原因 × 終結情形</div>
+                <div v-for="cross in charts.divorceAnalysis.crossAnalysis" :key="cross.initiator" style="margin-bottom:12px">
+                  <div style="font-size:11px;font-weight:700;color:#2563eb;margin-bottom:4px">{{ cross.initiator }}</div>
+                  <template v-if="cross.stack?.data?.length">
+                    <svg v-if="stackedBarSvg(cross.stack)" :viewBox="`0 0 ${stackedBarSvg(cross.stack).W} ${stackedBarSvg(cross.stack).H}`" width="100%" preserveAspectRatio="xMinYMin meet">
+                      <template v-for="(row, ri) in stackedBarSvg(cross.stack).rows" :key="ri">
+                        <text :x="stackedBarSvg(cross.stack).LM - 6" :y="row.y + 20" text-anchor="end" font-size="10" fill="#111827" font-weight="500"><tspan v-for="(line, li) in row.labelLines" :key="li" :x="stackedBarSvg(cross.stack).LM - 6" :dy="li === 0 ? 0 : 12">{{ line }}</tspan></text>
+                        <rect v-for="b in row.bars" :key="b.seg" :x="b.x" :y="b.y" :width="Math.max(0, b.w)" :height="b.h" :fill="b.fill" rx="2"><title>{{ b.seg }}：{{ fmtPctTenths(b.tenths) }}（{{ b.count }} 件）</title></rect>
+                      </template>
+                    </svg>
+                  </template>
                 </div>
-                <div v-if="charts.divorceAnalysis.endingDist?.length" style="flex:1;min-width:200px">
-                  <div style="font-size:12px;font-weight:700;margin-bottom:6px;color:#374151">終結情形</div>
-                  <div v-for="item in charts.divorceAnalysis.endingDist" :key="item.name" class="bar-item">
-                    <div class="bar-label">{{ item.name }}</div>
-                    <div class="bar-track"><div class="bar-fill green" :style="{ width: Math.max(2, item.count / (charts.divorceAnalysis.endingDist[0]?.count || 1) * 100) + '%' }"></div></div>
-                    <div class="bar-count">{{ item.count }}</div>
-                  </div>
+                <div class="legend-row" v-if="charts.divorceAnalysis.crossAnalysis[0]?.stack?.segments">
+                  <div v-for="(seg, si) in charts.divorceAnalysis.crossAnalysis[0].stack.segments" :key="seg" class="legend-item"><span class="legend-dot" :style="{ background: PALETTE[si % PALETTE.length] }"></span>{{ seg }}</div>
                 </div>
               </div>
             </template>
@@ -932,43 +798,25 @@ const heatmapTitle = computed(() => {
         </template>
       </div>
 
-      <!-- ██ Judgment Table (centered) ██ -->
+      <!-- ██ Judgment Table ██ -->
       <div class="table-wrap" v-if="dashData">
         <div class="table-header">
-          <div style="font-size:14px;font-weight:700;color:#111827">
-            判決書列表
-            <span style="font-weight:400;color:#6b7280;font-size:12px">
-              共 {{ judgments.total?.toLocaleString() }} 篇，第 {{ pg + 1 }} / {{ judgments.totalPages || 1 }} 頁
-            </span>
-          </div>
-          <div style="display:flex;gap:6px">
-            <button :disabled="pg === 0" @click="pg--" class="btn-page">‹ 上一頁</button>
-            <button :disabled="pg >= (judgments.totalPages || 1) - 1" @click="pg++" class="btn-page">下一頁 ›</button>
-          </div>
+          <div style="font-size:14px;font-weight:700;color:#111827">判決書列表 <span style="font-weight:400;color:#6b7280;font-size:12px">共 {{ judgments.total?.toLocaleString() }} 篇，第 {{ pg + 1 }} / {{ judgments.totalPages || 1 }} 頁</span></div>
+          <div style="display:flex;gap:6px"><button :disabled="pg === 0" @click="pg--" class="btn-page">‹ 上一頁</button><button :disabled="pg >= (judgments.totalPages || 1) - 1" @click="pg++" class="btn-page">下一頁 ›</button></div>
         </div>
         <div :class="['table-col-header', activeType === 'criminal_litigation' ? 'grid-criminal' : 'grid-civil']">
-          <div>裁判書 ID</div>
-          <div style="text-align:center">法院別</div>
-          <div style="text-align:center">案由</div>
-          <div style="text-align:center">終結情形</div>
+          <div>裁判書 ID</div><div style="text-align:center">法院別</div><div style="text-align:center">案由</div><div style="text-align:center">終結情形</div>
           <div v-if="activeType === 'criminal_litigation'" style="text-align:center">分類</div>
           <div v-if="activeType !== 'criminal_litigation'" style="text-align:center">律師</div>
         </div>
         <div v-if="!judgments.items?.length" style="padding:32px;text-align:center;color:#9ca3af;font-size:12px">無符合條件的判決書</div>
         <template v-for="j in judgments.items" :key="j.jid">
-          <div :class="['table-row', activeType === 'criminal_litigation' ? 'grid-criminal' : 'grid-civil', { expanded: expandedJid === j.jid }]"
-            @click="toggleExpand(j.jid)" style="cursor:pointer">
-            <div class="table-jid">
-              <span class="expand-icon">{{ expandedJid === j.jid ? '▼' : '▶' }}</span>
-              <a :href="JURL + j.jid" target="_blank" rel="noopener noreferrer" class="jid-link" @click.stop>{{ j.jid }}</a>
-            </div>
-            <div style="font-size:10px;text-align:center">{{ j.court }}</div>
-            <div class="table-reason">{{ j.cause }}</div>
-            <div style="font-size:10px;text-align:center">{{ j.ending }}</div>
+          <div :class="['table-row', activeType === 'criminal_litigation' ? 'grid-criminal' : 'grid-civil', { expanded: expandedJid === j.jid }]" @click="toggleExpand(j.jid)" style="cursor:pointer">
+            <div class="table-jid"><span class="expand-icon">{{ expandedJid === j.jid ? '▼' : '▶' }}</span><a :href="JURL + j.jid" target="_blank" rel="noopener noreferrer" class="jid-link" @click.stop>{{ j.jid }}</a></div>
+            <div style="font-size:10px;text-align:center">{{ j.court }}</div><div class="table-reason">{{ j.cause }}</div><div style="font-size:10px;text-align:center">{{ j.ending }}</div>
             <div v-if="activeType === 'criminal_litigation'" style="text-align:center;font-size:10px">{{ j.cls }}</div>
             <div v-if="activeType !== 'criminal_litigation'" style="text-align:center;font-size:10px">{{ j.lawyer }}</div>
           </div>
-          <!-- Expanded detail row -->
           <div v-if="expandedJid === j.jid" class="detail-row">
             <template v-if="activeType === 'criminal_litigation'">
               <div class="detail-grid">
@@ -979,9 +827,7 @@ const heatmapTitle = computed(() => {
                 <div class="detail-item" v-if="j.defense"><span class="detail-key">辯護代理</span><span class="detail-val">{{ j.defense }}</span></div>
                 <div class="detail-item" v-if="j.defendants"><span class="detail-key">被告人數</span><span class="detail-val">{{ j.defendants }}</span></div>
               </div>
-              <div v-if="j.tags?.length" class="detail-tags">
-                <span v-for="tag in j.tags" :key="tag" class="detail-tag">{{ tag }}</span>
-              </div>
+              <div v-if="j.tags?.length" class="detail-tags"><span v-for="tag in j.tags" :key="tag" class="detail-tag">{{ tag }}</span></div>
             </template>
             <template v-else-if="activeType === 'civil_litigation'">
               <div class="detail-grid">
@@ -1011,11 +857,10 @@ const heatmapTitle = computed(() => {
 .dashboard { display: flex; min-height: 100vh; background: #f8fafc; font-family: 'DM Sans','Noto Sans TC',sans-serif; color: #111827; }
 .sidebar-tab { width: 28px; min-width: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border-right: 1px solid #d1d5db; transition: all 0.2s; z-index: 10; writing-mode: vertical-rl; font-size: 12px; font-weight: 600; user-select: none; letter-spacing: 3px; background: #1e40af; color: #fff; }
 .sidebar-tab.open { background: #f1f5f9; color: #64748b; }
-.sidebar-tab:hover { filter: brightness(1.1); }
 .sidebar { overflow: hidden; transition: all 0.3s ease; border-right: 1px solid #e5e7eb; background: #fff; flex-shrink: 0; }
 .sidebar-inner { width: 320px; height: 100vh; display: flex; flex-direction: column; }
 .sidebar-header { padding: 14px 14px 12px; border-bottom: 1px solid #e5e7eb; flex-shrink: 0; background: #fff; z-index: 5; box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
-.btn-sm { padding: 3px 10px; border-radius: 999px; border: 1px solid #d1d5db; background: #f9fafb; color: #4b5563; font-size: 10px; cursor: pointer; font-family: inherit; flex-shrink: 0; }
+.btn-sm { padding: 3px 10px; border-radius: 999px; border: 1px solid #d1d5db; background: #f9fafb; color: #4b5563; font-size: 10px; cursor: pointer; font-family: inherit; }
 .filter-tip { margin-bottom: 10px; padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fefce8; color: #713f12; font-size: 10px; line-height: 1.6; }
 .btn-submit { flex: 1; padding: 9px; border-radius: 8px; border: none; background: #2563eb; color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; box-shadow: 0 1px 3px rgba(37,99,235,0.3); }
 .btn-reset { padding: 9px 14px; border-radius: 8px; border: 1px solid #d1d5db; background: #fff; color: #4b5563; font-size: 13px; cursor: pointer; font-family: inherit; }
@@ -1027,7 +872,7 @@ const heatmapTitle = computed(() => {
 .filter-group { margin-bottom: 8px; }
 .filter-label-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 4px; }
 .filter-label { font-size: 11px; font-weight: 600; color: #374151; white-space: nowrap; }
-.locked-badge { display: inline-flex; align-items: center; gap: 2px; padding: 2px 8px; font-size: 10px; border-radius: 999px; border: 1px solid #e5e7eb; background: #f9fafb; color: #9ca3af; cursor: help; flex-shrink: 0; user-select: none; }
+.locked-badge { display: inline-flex; align-items: center; gap: 2px; padding: 2px 8px; font-size: 10px; border-radius: 999px; border: 1px solid #e5e7eb; background: #f9fafb; color: #9ca3af; cursor: help; flex-shrink: 0; }
 .locked-star { color: #dc2626; font-weight: 700; }
 .chip-wrap { display: flex; flex-wrap: wrap; gap: 4px; }
 .chip-wrap.scrollable { max-height: 120px; overflow-y: auto; }
@@ -1059,7 +904,6 @@ const heatmapTitle = computed(() => {
 .type-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
 .type-tab { padding: 7px 16px; border-radius: 8px; border: 1px solid #d1d5db; background: #fff; color: #4b5563; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.2s; }
 .type-tab.active { border-color: #2563eb; background: #eff6ff; color: #2563eb; box-shadow: 0 0 0 2px rgba(37,99,235,0.15); }
-.type-tab:hover { border-color: #93c5fd; }
 .tab-count { font-weight: 400; opacity: 0.6; font-size: 10px; }
 .filter-summary { font-size: 11px; color: #4b5563; margin-bottom: 12px; padding: 8px 12px; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; line-height: 1.5; }
 .loading-overlay { padding: 40px; text-align: center; color: #6b7280; font-size: 16px; }
@@ -1069,25 +913,21 @@ const heatmapTitle = computed(() => {
 .stat-accent { position: absolute; top: 0; left: 0; width: 4px; height: 100%; }
 .stat-label { font-size: 10px; color: #6b7280; margin-bottom: 4px; }
 .stat-value { font-size: 22px; font-weight: 700; color: #111827; }
-
-/* Chart grid: default auto-fill, criminal forced 2-column */
 .chart-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 14px; margin-bottom: 16px; }
 .chart-grid-2col { grid-template-columns: repeat(2, 1fr); }
 @media (max-width: 900px) { .chart-grid-2col { grid-template-columns: 1fr; } }
-
 .chart-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; }
 .chart-title { font-size: 14px; font-weight: 700; color: #111827; }
 .chart-sub { font-size: 11px; color: #6b7280; margin-bottom: 10px; }
 .no-data { padding: 32px; text-align: center; color: #9ca3af; font-size: 12px; }
-.heatmap { border-collapse: collapse; font-size: 10px; width: 100%; }
-.heatmap th { padding: 4px 6px; text-align: center; font-weight: 600; color: #374151; white-space: nowrap; font-size: 9px; border-bottom: 1px solid #e5e7eb; }
+.heatmap { border-collapse: collapse; font-size: 10px; width: 100%; table-layout: auto; }
+.heatmap th { padding: 4px 6px; text-align: center; font-weight: 600; color: #374151; font-size: 9px; border-bottom: 1px solid #e5e7eb; }
+.hm-col-header { white-space: normal; word-break: break-all; max-width: 60px; min-width: 36px; line-height: 1.3; }
 .heatmap .hm-label { text-align: right; padding-right: 8px; font-weight: 600; color: #374151; white-space: nowrap; font-size: 10px; }
 .heatmap .hm-cell { text-align: center; padding: 4px 2px; font-size: 10px; font-weight: 500; border: 1px solid rgba(255,255,255,0.3); min-width: 32px; }
 .legend-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; justify-content: center; }
 .legend-item { display: flex; align-items: center; gap: 4px; font-size: 10px; color: #4b5563; }
 .legend-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
-
-/* Table (centered) */
 .table-wrap { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; max-width: 1000px; margin: 0 auto; }
 .table-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid #e5e7eb; }
 .table-col-header { display: grid; padding: 8px 16px; background: #f9fafb; border-bottom: 1px solid #e5e7eb; font-size: 10px; font-weight: 700; color: #6b7280; gap: 8px; }
@@ -1103,8 +943,6 @@ const heatmapTitle = computed(() => {
 .table-reason { font-size: 10px; color: #4b5563; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; }
 .btn-page { padding: 4px 10px; border-radius: 6px; border: 1px solid #d1d5db; background: #fff; color: #4b5563; font-size: 11px; cursor: pointer; font-family: inherit; }
 .btn-page:disabled { opacity: 0.4; cursor: not-allowed; }
-
-/* Detail row */
 .detail-row { padding: 10px 16px 10px 32px; background: #f0f7ff; border-bottom: 1px solid #dbeafe; }
 .detail-grid { display: flex; flex-wrap: wrap; gap: 8px 20px; }
 .detail-item { display: flex; align-items: center; gap: 4px; }
@@ -1112,8 +950,6 @@ const heatmapTitle = computed(() => {
 .detail-val { font-size: 10px; color: #111827; }
 .detail-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 .detail-tag { padding: 2px 8px; border-radius: 999px; font-size: 9px; background: #dbeafe; color: #1e40af; font-weight: 600; }
-
-/* Map */
 .map-container { position: relative; }
 .map-tooltip { position: absolute; z-index: 100; background: #fff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.12); pointer-events: none; min-width: 200px; max-width: 300px; }
 .tooltip-title { font-size: 13px; font-weight: 700; color: #111827; margin-bottom: 4px; border-bottom: 1px solid #e5e7eb; padding-bottom: 4px; }
@@ -1121,13 +957,13 @@ const heatmapTitle = computed(() => {
 .tooltip-cats { margin-top: 6px; }
 .tooltip-cat-title { font-size: 10px; font-weight: 700; color: #6b7280; margin-bottom: 2px; }
 .tooltip-cat { font-size: 10px; color: #374151; margin-bottom: 1px; }
-
-/* Bar chart items */
+.map-legend { display: flex; align-items: center; gap: 6px; justify-content: center; margin-top: 8px; }
+.map-legend-bar { width: 120px; height: 10px; border-radius: 5px; background: linear-gradient(to right, rgb(76,175,80), rgb(240,230,60), rgb(255,120,40), rgb(220,40,40)); }
+.map-toggle-btn { padding: 4px 14px; border-radius: 999px; border: 1px solid #d1d5db; background: #fff; color: #6b7280; font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.2s; }
+.map-toggle-btn.active { border-color: #2563eb; background: #eff6ff; color: #2563eb; }
 .bar-item { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
 .bar-label { font-size: 10px; color: #374151; min-width: 80px; text-align: right; flex-shrink: 0; }
-.bar-track { flex: 1; height: 14px; background: #f1f5f9; border-radius: 4px; overflow: hidden; }
-.bar-fill { height: 100%; background: #4F86F7; border-radius: 4px; transition: width 0.3s; }
-.bar-fill.orange { background: #F28C52; }
-.bar-fill.green { background: #35B679; }
-.bar-count { font-size: 10px; color: #6b7280; min-width: 36px; }
+.bar-track { flex: 1; height: 16px; background: #f1f5f9; border-radius: 4px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+.bar-count { font-size: 10px; color: #6b7280; min-width: 50px; }
 </style>
