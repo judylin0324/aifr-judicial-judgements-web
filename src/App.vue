@@ -935,4 +935,3 @@ const filterDefs = computed(() => getFilterDefs(activeType.value))
 .bar-fill.green { background: #35B679; }
 .bar-count { font-size: 10px; color: #6b7280; min-width: 36px; }
 </style>
-</script>
