@@ -411,7 +411,7 @@ const statCards = computed(() => {
 const chartLayout = computed(() => {
   const ct = activeType.value
   if (ct === 'criminal_litigation') return [
-    { type: 'heatmap', key: 'caseHeatmap', title: '案件結構熱度圖', sub: '' },
+    { type: 'courtClassBar', key: 'courtClassBar', title: '案件分類 × 法院別', sub: '各法院案件分類堆疊分布' },
     { type: 'stackedBar', key: 'lawStack', title: '法條量刑結構堆疊圖', sub: '適用加重減輕類型分布' },
     { type: 'violin', key: 'violin', title: '法條有期徒刑分布小提琴圖', sub: '刑期分布、平均值與中位數' },
     { type: 'boxWhisker', key: 'boxWhisker', title: '法條有期徒刑盒鬚圖', sub: '中位數、四分位距與離群值' },
@@ -443,9 +443,8 @@ function hideMapTooltip() { mapTooltip.value = { show: false, x: 0, y: 0, data: 
 onMounted(async () => { await loadTypes(); await loadOptions(); await loadData() })
 watch(activeType, async () => { allClear(); dashData.value = null; filterOptions.value = {}; await loadOptions(); await loadData() })
 watch(pg, () => { loadData() })
-function switchType(type) { if (type === activeType.value) return; activeType.value = type; activeCat.value = CASE_TYPES[type]?.category || 'criminal' }
+function switchType(type) { if (type === activeType.value) return; activeType.value = type; activeCat.value = CASE_TYPES[type]?.category || 'criminal'; sideOpen.value = true }
 const filterDefs = computed(() => getFilterDefs(activeType.value))
-const heatmapTitle = computed(() => charts.value?.caseHeatmap?.heatmapTitle || '案件分類 × 終結情形')
 
 // Computed map data for family toggle
 const familyActiveMapData = computed(() => {
@@ -513,7 +512,7 @@ const familyActiveMapTitle = computed(() => familyMapMode.value === 'inherit' ? 
     </div>
 
     <!-- ██ Main Area ██ -->
-    <div class="main-area">
+    <div :class="['main-area', 'bg-' + activeCat]">
       <div class="main-header">
         <h1 style="font-size:22px;font-weight:700;margin:0;color:#0f172a">裁判書量化實證研究平台</h1>
         <button @click="handleDL" :disabled="!dashData?.judgments?.items?.length" class="btn-dl">下載判決清單</button>
@@ -521,7 +520,7 @@ const familyActiveMapTitle = computed(() => familyMapMode.value === 'inherit' ? 
       <div class="type-tabs">
         <template v-for="cat in CATEGORIES" :key="cat.key">
           <template v-for="t in availableTypes.filter(at => CASE_TYPES[at.key]?.category === cat.key)" :key="t.key">
-            <button @click="switchType(t.key)" :class="['type-tab', { active: activeType === t.key }]">{{ CASE_TYPES[t.key]?.icon }} {{ CASE_TYPES[t.key]?.label }} <span class="tab-count">({{ t.rowCount?.toLocaleString() }})</span></button>
+            <button @click="switchType(t.key)" :class="['type-tab', 'tab-' + cat.key, { active: activeType === t.key }]">{{ CASE_TYPES[t.key]?.icon }} {{ CASE_TYPES[t.key]?.label }} <span class="tab-count">({{ t.rowCount?.toLocaleString() }})</span></button>
           </template>
         </template>
       </div>
@@ -540,7 +539,7 @@ const familyActiveMapTitle = computed(() => familyMapMode.value === 'inherit' ? 
 
           <!-- ══ Heatmap ══ -->
           <div class="chart-card" v-if="ch.type === 'heatmap'">
-            <div class="chart-title">{{ ch.key === 'caseHeatmap' ? heatmapTitle : ch.title }}</div>
+            <div class="chart-title">{{ ch.title }}</div>
             <div class="chart-sub">{{ ch.sub }}</div>
             <div v-if="!charts[ch.key]?.xLabels?.length" class="no-data">無資料</div>
             <div v-else style="overflow-x:auto">
@@ -554,6 +553,41 @@ const familyActiveMapTitle = computed(() => familyMapMode.value === 'inherit' ? 
                 </tr></tbody>
               </table>
             </div>
+          </div>
+
+          <!-- ══ Court × Class Stacked Vertical Bar ══ -->
+          <div class="chart-card" v-if="ch.type === 'courtClassBar'" style="grid-column: 1 / -1">
+            <div class="chart-title">{{ ch.title }}</div>
+            <div class="chart-sub">{{ ch.sub }}</div>
+            <div v-if="!charts[ch.key]?.data?.length" class="no-data">無資料</div>
+            <template v-else>
+              <div style="width:100%;overflow-x:auto">
+                <svg :width="Math.max(700, charts[ch.key].data.length * 36 + 100)" :viewBox="'0 0 ' + Math.max(700, charts[ch.key].data.length * 36 + 100) + ' 380'" preserveAspectRatio="xMinYMin meet">
+                  <template v-for="(tick, ti) in (() => { const maxT = Math.max(...charts[ch.key].data.map(d => d.total)); const step = Math.max(1, Math.ceil(maxT / 5 / Math.pow(10, Math.floor(Math.log10(maxT/5||1))))*Math.pow(10, Math.floor(Math.log10(maxT/5||1)))); const ticks = []; for (let t = 0; t <= maxT * 1.1; t += step) ticks.push(t); return ticks })()" :key="'gt'+ti">
+                    <line x1="60" :x2="Math.max(700, charts[ch.key].data.length * 36 + 100) - 20" :y1="280 - (tick / Math.max(...charts[ch.key].data.map(d => d.total)) * 1.1) * 260" :y2="280 - (tick / Math.max(...charts[ch.key].data.map(d => d.total)) * 1.1) * 260" stroke="#e5e7eb" stroke-dasharray="3 3"/>
+                    <text x="55" :y="284 - (tick / Math.max(...charts[ch.key].data.map(d => d.total)) * 1.1) * 260" text-anchor="end" font-size="10" fill="#6b7280">{{ tick.toLocaleString() }}</text>
+                  </template>
+                  <template v-for="(d, di) in charts[ch.key].data" :key="'cb'+di">
+                    <g>
+                      <template v-for="(seg, si) in charts[ch.key].segments" :key="seg">
+                        <rect
+                          :x="70 + di * 36"
+                          :y="280 - charts[ch.key].segments.slice(0, si + 1).reduce((a, s) => a + (d[s] || 0), 0) / (Math.max(...charts[ch.key].data.map(dd => dd.total)) * 1.1) * 260"
+                          width="28"
+                          :height="Math.max(0, (d[seg] || 0) / (Math.max(...charts[ch.key].data.map(dd => dd.total)) * 1.1) * 260)"
+                          :fill="PALETTE[si % PALETTE.length]" rx="1">
+                          <title>{{ d.abbr }} - {{ seg }}：{{ (d[seg] || 0).toLocaleString() }} 件</title>
+                        </rect>
+                      </template>
+                      <text :x="70 + di * 36 + 14" y="295" text-anchor="middle" font-size="10" fill="#374151" font-weight="600" writing-mode="vertical-rl" style="letter-spacing:1px">{{ d.abbr }}</text>
+                    </g>
+                  </template>
+                </svg>
+              </div>
+              <div class="legend-row">
+                <div v-for="(seg, si) in charts[ch.key].segments" :key="seg" class="legend-item"><span class="legend-dot" :style="{ background: PALETTE[si % PALETTE.length] }"></span>{{ seg }}</div>
+              </div>
+            </template>
           </div>
 
           <!-- ══ Stacked Bar ══ -->
@@ -897,14 +931,20 @@ const familyActiveMapTitle = computed(() => familyMapMode.value === 'inherit' ? 
 .acc-title { font-size: 11px; font-weight: 600; color: #374151; }
 .acc-badge { background: #2563eb; color: #fff; font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: 999px; }
 .acc-body { padding: 8px 10px; background: #fff; }
-.main-area { flex: 1; overflow-y: auto; padding: 20px 24px; min-width: 0; }
+.main-area { flex: 1; overflow-y: auto; padding: 20px 24px; min-width: 0; transition: background 0.3s; }
+.main-area.bg-criminal { background: #f0f5ff; }
+.main-area.bg-civil { background: #f0fdf4; }
+.main-area.bg-family { background: #fffbeb; }
 .main-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
 .btn-dl { padding: 8px 16px; border-radius: 8px; border: 1px solid #93c5fd; background: #eff6ff; color: #2563eb; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
 .btn-dl:disabled { opacity: 0.4; cursor: not-allowed; }
 .type-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
 .type-tab { padding: 7px 16px; border-radius: 8px; border: 1px solid #d1d5db; background: #fff; color: #4b5563; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.2s; }
-.type-tab.active { border-color: #2563eb; background: #eff6ff; color: #2563eb; box-shadow: 0 0 0 2px rgba(37,99,235,0.15); }
-.tab-count { font-weight: 400; opacity: 0.6; font-size: 10px; }
+.type-tab.tab-criminal.active { border-color: #2563eb; background: #2563eb; color: #fff; box-shadow: 0 2px 6px rgba(37,99,235,0.3); }
+.type-tab.tab-civil.active { border-color: #059669; background: #059669; color: #fff; box-shadow: 0 2px 6px rgba(5,150,105,0.3); }
+.type-tab.tab-family.active { border-color: #d97706; background: #d97706; color: #fff; box-shadow: 0 2px 6px rgba(217,119,6,0.3); }
+.tab-count { font-weight: 400; opacity: 0.7; font-size: 10px; }
+.type-tab.active .tab-count { opacity: 0.85; }
 .filter-summary { font-size: 11px; color: #4b5563; margin-bottom: 12px; padding: 8px 12px; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; line-height: 1.5; }
 .loading-overlay { padding: 40px; text-align: center; color: #6b7280; font-size: 16px; }
 .error-bar { padding: 10px 14px; margin-bottom: 12px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; color: #dc2626; font-size: 12px; }
