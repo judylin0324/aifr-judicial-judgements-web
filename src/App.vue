@@ -31,6 +31,9 @@ const CASE_TYPES = {
   family_litigation:   { label: '家事訴訟', category: 'family',   icon: '👨‍👩‍👧' },
 }
 const PALETTE = ['#4F86F7','#F28C52','#35B679','#D9A93A','#E45C5C','#8B5CF6','#06B6D4','#EC4899','#84CC16']
+const PASTEL = ['#93C5FD','#FCA5A5','#86EFAC','#FDE68A','#C4B5FD','#67E8F9','#FBCFE8','#BEF264'] // pastel for court bar
+const FAMILY_BAR_COLORS = ['#F59E0B','#FB923C','#FBBF24','#F97316','#FCD34D'] // warm tones for family
+const INITIATOR_LINE_COLORS = { '男方': '#3B82F6', '女方': '#EC4899', '雙方': '#8B5CF6' }
 const PIE_COLORS = ['#4F86F7','#F28C52','#35B679','#D9A93A','#E45C5C','#8B5CF6']
 const AG_MIT_CATS = ['無加重無減輕','僅有加重法條','僅有減輕法條','有加重有減輕']
 const AG_MIT_COLORS = {'無加重無減輕':'#4F86F7','僅有加重法條':'#F28C52','僅有減輕法條':'#35B679','有加重有減輕':'#D9A93A'}
@@ -341,7 +344,8 @@ function violinSvgData(violinData) {
   const LM = 210, RM = 78, TM = 28, BM = 76, rowH = 104, W = 860
   const H = TM + BM + rowH * violinData.length; const plotW = W - LM - RM
   const allV = violinData.flatMap(d => d.values)
-  const gMin = Math.min(...allV), gMax = Math.max(...allV), rawRange = gMax - gMin || 1
+  const allOutliers = violinData.flatMap(d => d.outliers || [])
+  const gMin = Math.min(...allV, ...allOutliers), gMax = Math.max(...allV, ...allOutliers), rawRange = gMax - gMin || 1
   const { ticks, start, end } = buildRangeTicks(gMin, gMax, 'imprisonment', 6)
   const domain = Math.max(1, end - start); const xS = v => LM + ((v - start) / domain) * plotW
   function densityBins(values) {
@@ -356,27 +360,11 @@ function violinSvgData(violinData) {
     const dn = [...pts].reverse().map(p => `${p.x},${y + p.hw}`).join(' L ')
     const path = `M ${pts[0].x},${y} L ${up} L ${pts[pts.length - 1].x},${y} L ${dn} Z`
     const meanX = xS(d.mean), medianX = xS(d.median)
-    return { name: d.name, y, path, meanX, medianX, meanNR: meanX > W - RM - 92, medNR: medianX > W - RM - 92, n: d.n, meanLabel: formatMetricValue(d.mean, 'imprisonment', 1), medLabel: formatMetricValue(d.median, 'imprisonment', 1), labelLines: wrapTextLines(d.name, 8, 3) }
+    const outlierPts = (d.outliers || []).map(v => ({ cx: Math.max(LM, Math.min(W - RM, xS(v))), val: v }))
+    return { name: d.name, y, path, meanX, medianX, meanNR: meanX > W - RM - 92, medNR: medianX > W - RM - 92, n: d.n, meanLabel: formatMetricValue(d.mean, 'imprisonment', 1), medLabel: formatMetricValue(d.median, 'imprisonment', 1), labelLines: wrapTextLines(d.name, 8, 3), outlierPts, outlierCount: (d.outliers || []).length }
   })
   const tickData = ticks.filter(t => { const x = xS(t); return x >= LM - 2 && x <= W - RM + 2 }).map(t => ({ x: xS(t), label: formatMetricValue(t, 'imprisonment', 1) }))
   return { W, H, LM, RM, TM, BM, rows, tickData, axisLabel: '刑期（月）' }
-}
-function boxSvgData(boxData) {
-  if (!boxData?.length) return null
-  const LM = 210, RM = 22, TM = 28, BM = 110, rowH = 104, W = 860
-  const H = TM + BM + rowH * boxData.length; const plotW = W - LM - RM
-  const safeMax = Math.max(1, ...boxData.map(d => Math.max(d.whiskerHigh, ...(d.outliers || []), d.q3)))
-  const { ticks, maxTick } = buildNiceTicks(safeMax, 'imprisonment', 6); const xS = v => LM + (Math.max(0, v) / maxTick) * plotW
-  const rows = boxData.map((d, idx) => {
-    const y = TM + rowH * idx + rowH / 2
-    const q1X = xS(d.q1), medianX = xS(d.median), q3X = xS(d.q3), wlX = xS(d.whiskerLow), whX = xS(d.whiskerHigh)
-    const noteX = Math.min(W - RM - 6, q3X + 12), noteAnc = noteX >= W - RM - 30 ? 'end' : 'start'
-    const color = AG_MIT_COLORS[d.dominant] || '#4F86F7'
-    return { law: d.law, y, q1X, medianX, q3X, wlX, whX, color, noteX, noteAnc, n: d.n, medLabel: formatMetricValue(d.median, 'imprisonment', 1), iqrLabel: formatMetricValue(d.iqr, 'imprisonment', 1), outlierPts: (d.outliers || []).map(v => ({ cx: xS(v) })), labelLines: wrapTextLines(d.law, 8, 3), boxW: Math.max(2, q3X - q1X) }
-  })
-  const tickData = ticks.map(t => ({ x: xS(t), label: formatMetricValue(t, 'imprisonment', 1) }))
-  const legend = AG_MIT_CATS.map(c => ({ label: c, color: AG_MIT_COLORS[c] }))
-  return { W, H, LM, RM, TM, BM, rows, tickData, axisLabel: '刑期（月）', legend }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -386,7 +374,6 @@ const charts = computed(() => dashData.value?.charts || {})
 const stats = computed(() => dashData.value?.stats || {})
 const judgments = computed(() => dashData.value?.judgments || { items: [], total: 0, totalPages: 1 })
 const vSvg = computed(() => violinSvgData(charts.value.violin))
-const bSvg = computed(() => boxSvgData(charts.value.boxWhisker))
 
 const statCards = computed(() => {
   const s = stats.value, ct = activeType.value
@@ -411,22 +398,20 @@ const statCards = computed(() => {
 const chartLayout = computed(() => {
   const ct = activeType.value
   if (ct === 'criminal_litigation') return [
-    { type: 'courtClassBar', key: 'courtClassBar', title: '案件分類 × 法院別', sub: '各法院案件分類堆疊分布' },
+    { type: 'courtClassBar', key: 'courtClassBar', title: '案件分類 × 法院別', sub: '各法院案件分類堆疊分布（北→南）' },
+    { type: 'violin', key: 'violin', title: '法條有期徒刑分布小提琴圖', sub: '刑期分布、平均值、中位數與離群值' },
     { type: 'stackedBar', key: 'lawStack', title: '法條量刑結構堆疊圖', sub: '適用加重減輕類型分布' },
-    { type: 'violin', key: 'violin', title: '法條有期徒刑分布小提琴圖', sub: '刑期分布、平均值與中位數' },
-    { type: 'boxWhisker', key: 'boxWhisker', title: '法條有期徒刑盒鬚圖', sub: '中位數、四分位距與離群值' },
   ]
   if (ct === 'civil_litigation') return [
     { type: 'dualAxisBar', key: 'lawyerEndingBar', title: '律師代理×終結情形', sub: '各律師代理情形案件數與占比' },
-    { type: 'taiwanMap', key: 'courtMap', title: '法院案件地圖', sub: '各法院前五案由、律師代理率' },
+    { type: 'lawyerRateMap', key: 'lawyerRateMap', title: '各法院律師代理率地圖', sub: '各法院律師代理情形分布' },
     { type: 'heatmap', key: 'amountLawyerHeatmap', title: '標的金額×律師代理交叉', sub: '金額級距與律師代理情形' },
     { type: 'heatmap', key: 'actionSubjectHeatmap', title: '案由動作×標的交叉', sub: '動作與標的交叉分析' },
   ]
   if (ct === 'family_litigation') return [
     { type: 'dualAxisBar', key: 'lawyerCauseBar', title: '律師代理×案由', sub: '各律師代理情形案件數與占比' },
-    { type: 'causeDist', key: 'causeDist', title: '案件案由分布', sub: '各案由類別案件數' },
-    { type: 'familyMap', key: 'courtMap', title: '法院案件地圖', sub: '' },
-    { type: 'divorceAnalysis', key: 'divorceAnalysis', title: '離婚案件分析', sub: '主動離婚者與離婚原因交叉' },
+    { type: 'causeAndPie', key: 'causeDist', title: '案件案由分布', sub: '各案由類別案件數與主動離婚者分布' },
+    { type: 'familyCourtBar', key: 'divorceCourtBar', title: '離婚案件法院分布', sub: '各法院離婚案件數與主動離婚者律師代理率' },
   ]
   return []
 })
@@ -446,12 +431,16 @@ watch(pg, () => { loadData() })
 function switchType(type) { if (type === activeType.value) return; activeType.value = type; activeCat.value = CASE_TYPES[type]?.category || 'criminal'; sideOpen.value = true }
 const filterDefs = computed(() => getFilterDefs(activeType.value))
 
-// Computed map data for family toggle
-const familyActiveMapData = computed(() => {
-  if (familyMapMode.value === 'inherit') return charts.value.inheritCourtMap || []
-  return charts.value.divorceCourtMap || []
+// Computed family court bar toggle
+const familyActiveCourtBar = computed(() => {
+  if (familyMapMode.value === 'inherit') return charts.value.inheritCourtBar || { courts: [], segments: [], data: [], lawyerLines: {} }
+  return charts.value.divorceCourtBar || { courts: [], segments: [], data: [], lawyerLines: {} }
 })
-const familyActiveMapTitle = computed(() => familyMapMode.value === 'inherit' ? '繼承案件法院分布' : '離婚案件法院分布')
+const familyActiveBarTitle = computed(() => familyMapMode.value === 'inherit' ? '繼承案件法院分布' : '離婚案件法院分布')
+const familyActiveBarSub = computed(() => familyMapMode.value === 'inherit'
+  ? '各法院繼承案件數與律師代理率'
+  : '各法院離婚案件數與主動離婚者律師代理率（男方/女方/雙方）'
+)
 </script>
 
 <template>
@@ -548,7 +537,7 @@ const familyActiveMapTitle = computed(() => familyMapMode.value === 'inherit' ? 
                 <tbody><tr v-for="(y, yi) in charts[ch.key].yLabels" :key="y">
                   <td class="hm-label">{{ y }}</td>
                   <td v-for="(x, xi) in charts[ch.key].xLabels" :key="x" :title="`${y} × ${x}：${charts[ch.key].matrix[yi][xi]} 件`"
-                    :style="{ background: heatmapColor(charts[ch.key].matrix[yi][xi], charts[ch.key].max), color: (charts[ch.key].matrix[yi][xi] / (charts[ch.key].max || 1)) > 0.5 ? '#fff' : '#111827' }"
+                    :style="{ background: heatmapColor(charts[ch.key].matrix[yi][xi], ch.key === 'amountLawyerHeatmap' ? Math.max(...charts[ch.key].matrix[yi]) : charts[ch.key].max), color: (charts[ch.key].matrix[yi][xi] / (ch.key === 'amountLawyerHeatmap' ? (Math.max(...charts[ch.key].matrix[yi]) || 1) : (charts[ch.key].max || 1))) > 0.5 ? '#fff' : '#111827' }"
                     class="hm-cell">{{ charts[ch.key].matrix[yi][xi] }}</td>
                 </tr></tbody>
               </table>
@@ -557,35 +546,32 @@ const familyActiveMapTitle = computed(() => familyMapMode.value === 'inherit' ? 
 
           <!-- ══ Court × Class Stacked Vertical Bar ══ -->
           <div class="chart-card" v-if="ch.type === 'courtClassBar'" style="grid-column: 1 / -1">
-            <div class="chart-title">{{ ch.title }}</div>
-            <div class="chart-sub">{{ ch.sub }}</div>
+            <div class="chart-title">{{ charts[ch.key]?.mode === 'month' ? (charts[ch.key]?.courtName || '') + ' 終結年月 × 案件分類' : ch.title }}</div>
+            <div class="chart-sub">{{ charts[ch.key]?.mode === 'month' ? '各月案件分類堆疊分布' : ch.sub }}</div>
             <div v-if="!charts[ch.key]?.data?.length" class="no-data">無資料</div>
             <template v-else>
-              <div style="width:100%;overflow-x:auto">
-                <svg :width="Math.max(700, charts[ch.key].data.length * 36 + 100)" :viewBox="'0 0 ' + Math.max(700, charts[ch.key].data.length * 36 + 100) + ' 380'" preserveAspectRatio="xMinYMin meet">
-                  <template v-for="(tick, ti) in (() => { const maxT = Math.max(...charts[ch.key].data.map(d => d.total)); const step = Math.max(1, Math.ceil(maxT / 5 / Math.pow(10, Math.floor(Math.log10(maxT/5||1))))*Math.pow(10, Math.floor(Math.log10(maxT/5||1)))); const ticks = []; for (let t = 0; t <= maxT * 1.1; t += step) ticks.push(t); return ticks })()" :key="'gt'+ti">
-                    <line x1="60" :x2="Math.max(700, charts[ch.key].data.length * 36 + 100) - 20" :y1="280 - (tick / Math.max(...charts[ch.key].data.map(d => d.total)) * 1.1) * 260" :y2="280 - (tick / Math.max(...charts[ch.key].data.map(d => d.total)) * 1.1) * 260" stroke="#e5e7eb" stroke-dasharray="3 3"/>
-                    <text x="55" :y="284 - (tick / Math.max(...charts[ch.key].data.map(d => d.total)) * 1.1) * 260" text-anchor="end" font-size="10" fill="#6b7280">{{ tick.toLocaleString() }}</text>
-                  </template>
-                  <template v-for="(d, di) in charts[ch.key].data" :key="'cb'+di">
-                    <g>
-                      <template v-for="(seg, si) in charts[ch.key].segments" :key="seg">
-                        <rect
-                          :x="70 + di * 36"
-                          :y="280 - charts[ch.key].segments.slice(0, si + 1).reduce((a, s) => a + (d[s] || 0), 0) / (Math.max(...charts[ch.key].data.map(dd => dd.total)) * 1.1) * 260"
-                          width="28"
-                          :height="Math.max(0, (d[seg] || 0) / (Math.max(...charts[ch.key].data.map(dd => dd.total)) * 1.1) * 260)"
-                          :fill="PALETTE[si % PALETTE.length]" rx="1">
-                          <title>{{ d.abbr }} - {{ seg }}：{{ (d[seg] || 0).toLocaleString() }} 件</title>
-                        </rect>
-                      </template>
-                      <text :x="70 + di * 36 + 14" y="295" text-anchor="middle" font-size="10" fill="#374151" font-weight="600" writing-mode="vertical-rl" style="letter-spacing:1px">{{ d.abbr }}</text>
-                    </g>
-                  </template>
-                </svg>
-              </div>
-              <div class="legend-row">
-                <div v-for="(seg, si) in charts[ch.key].segments" :key="seg" class="legend-item"><span class="legend-dot" :style="{ background: PALETTE[si % PALETTE.length] }"></span>{{ seg }}</div>
+              <div style="display:flex;align-items:flex-start;gap:12px">
+                <div style="flex:1;overflow-x:auto">
+                  <svg :width="Math.max(500, charts[ch.key].data.length * 34 + 80)" :viewBox="'0 0 ' + Math.max(500, charts[ch.key].data.length * 34 + 80) + ' 240'" preserveAspectRatio="xMinYMin meet">
+                    <template v-for="(tick, ti) in (() => { const maxT = Math.max(...charts[ch.key].data.map(d => d.total)); const step = Math.max(1, Math.ceil(maxT / 4 / Math.pow(10, Math.floor(Math.log10(maxT/4||1))))*Math.pow(10, Math.floor(Math.log10(maxT/4||1)))); const ticks = []; for (let t = 0; t <= maxT * 1.1; t += step) ticks.push(t); return ticks })()" :key="'gt'+ti">
+                      <line x1="52" :x2="Math.max(500, charts[ch.key].data.length * 34 + 80) - 10" :y1="180 - (tick / (Math.max(...charts[ch.key].data.map(d => d.total)) * 1.1)) * 160" :y2="180 - (tick / (Math.max(...charts[ch.key].data.map(d => d.total)) * 1.1)) * 160" stroke="#e5e7eb" stroke-dasharray="3 3"/>
+                      <text x="48" :y="184 - (tick / (Math.max(...charts[ch.key].data.map(d => d.total)) * 1.1)) * 160" text-anchor="end" font-size="10" fill="#6b7280">{{ tick.toLocaleString() }}</text>
+                    </template>
+                    <template v-for="(d, di) in charts[ch.key].data" :key="'cb'+di">
+                      <g>
+                        <template v-for="(seg, si) in charts[ch.key].segments" :key="seg">
+                          <rect :x="58 + di * 34" :y="180 - charts[ch.key].segments.slice(0, si + 1).reduce((a, s) => a + (d[s] || 0), 0) / (Math.max(...charts[ch.key].data.map(dd => dd.total)) * 1.1) * 160" width="26" :height="Math.max(0, (d[seg] || 0) / (Math.max(...charts[ch.key].data.map(dd => dd.total)) * 1.1) * 160)" :fill="PASTEL[si % PASTEL.length]" rx="2" stroke="#fff" stroke-width="0.5">
+                            <title>{{ d.abbr }} - {{ seg }}：{{ (d[seg] || 0).toLocaleString() }} 件</title>
+                          </rect>
+                        </template>
+                        <text :x="58 + di * 34 + 13" y="195" text-anchor="middle" font-size="10" fill="#374151" font-weight="600" writing-mode="vertical-rl" style="letter-spacing:1px">{{ d.abbr }}</text>
+                      </g>
+                    </template>
+                  </svg>
+                </div>
+                <div style="flex-shrink:0;padding-top:20px">
+                  <div v-for="(seg, si) in charts[ch.key].segments" :key="seg" class="legend-item" style="margin-bottom:6px"><span class="legend-dot" :style="{ background: PASTEL[si % PASTEL.length] }"></span>{{ seg }}</div>
+                </div>
               </div>
             </template>
           </div>
@@ -637,8 +623,8 @@ const familyActiveMapTitle = computed(() => familyMapMode.value === 'inherit' ? 
             <div v-else class="no-data">無資料</div>
           </div>
 
-          <!-- ══ Taiwan Map (civil) ══ -->
-          <div class="chart-card" v-if="ch.type === 'taiwanMap'">
+          <!-- ══ Lawyer Rate Map (civil) ══ -->
+          <div class="chart-card" v-if="ch.type === 'lawyerRateMap'">
             <div class="chart-title">{{ ch.title }}</div>
             <div class="chart-sub">{{ ch.sub }}</div>
             <div v-if="!charts[ch.key]?.length" class="no-data">無資料</div>
@@ -652,68 +638,27 @@ const familyActiveMapTitle = computed(() => familyMapMode.value === 'inherit' ? 
                 <path :d="TW_OUTLINE" fill="#f0f4e8" stroke="#8faa7a" stroke-width="1.8" filter="url(#shadow)"/>
                 <template v-for="court in charts[ch.key]" :key="court.court">
                   <g v-if="COURT_POS[court.court]" @mouseenter="showMapTooltip($event, court)" @mouseleave="hideMapTooltip" style="cursor:pointer">
-                    <circle :cx="COURT_POS[court.court].x" :cy="COURT_POS[court.court].y" :r="Math.max(8, Math.min(26, Math.sqrt(court.pct) * 7))"
-                      :fill="heatColor(court.pct / Math.max(...charts[ch.key].map(c => c.pct)))" :stroke="heatColor(Math.min(1, court.pct / Math.max(...charts[ch.key].map(c => c.pct)) + 0.2))" stroke-width="2" opacity="0.85"/>
-                    <text :x="COURT_POS[court.court].x" :y="COURT_POS[court.court].y + Math.max(8, Math.min(26, Math.sqrt(court.pct) * 7)) + 12" text-anchor="middle" font-size="9" fill="#374151" font-weight="600">{{ court.court.replace('地方法院','') }}</text>
+                    <circle :cx="COURT_POS[court.court].x" :cy="COURT_POS[court.court].y" :r="Math.max(8, Math.min(26, court.lawyerRate / 4))"
+                      :fill="heatColor(court.lawyerRate / Math.max(...charts[ch.key].map(c => c.lawyerRate || 1)))" :stroke="heatColor(Math.min(1, court.lawyerRate / Math.max(...charts[ch.key].map(c => c.lawyerRate || 1)) + 0.15))" stroke-width="2" opacity="0.85"/>
+                    <text :x="COURT_POS[court.court].x" :y="COURT_POS[court.court].y + Math.max(8, Math.min(26, court.lawyerRate / 4)) + 12" text-anchor="middle" font-size="9" fill="#374151" font-weight="600">{{ court.court.replace('地方法院','') }}</text>
                   </g>
                 </template>
               </svg>
-              <!-- Color legend -->
               <div class="map-legend">
-                <span style="font-size:9px;color:#6b7280">少</span>
+                <span style="font-size:9px;color:#6b7280">低代理率</span>
                 <div class="map-legend-bar"></div>
-                <span style="font-size:9px;color:#6b7280">多</span>
+                <span style="font-size:9px;color:#6b7280">高代理率</span>
               </div>
-              <!-- Tooltip -->
               <div v-if="mapTooltip.show && mapTooltip.data" class="map-tooltip" :style="{ left: mapTooltip.x + 'px', top: mapTooltip.y + 'px' }">
                 <div class="tooltip-title">{{ mapTooltip.data.court }}</div>
-                <div class="tooltip-row">案件數：{{ mapTooltip.data.count.toLocaleString() }}（{{ mapTooltip.data.pct }}%）</div>
-                <div v-if="mapTooltip.data.lawyerRate !== undefined" class="tooltip-row">律師代理率：{{ mapTooltip.data.lawyerRate }}%</div>
-                <div v-if="mapTooltip.data.topCats?.length" class="tooltip-cats">
-                  <div class="tooltip-cat-title">主要案由：</div>
-                  <div v-for="cat in mapTooltip.data.topCats" :key="cat.name" class="tooltip-cat">{{ cat.name }}：{{ cat.count }}（{{ cat.pct }}%）</div>
-                </div>
+                <div class="tooltip-row">案件數：{{ mapTooltip.data.count.toLocaleString() }}</div>
+                <div class="tooltip-row" style="font-weight:700">律師代理率：{{ mapTooltip.data.lawyerRate }}%</div>
               </div>
             </div>
           </div>
 
-          <!-- ══ Family Map (divorce/inherit toggle) ══ -->
-          <div class="chart-card" v-if="ch.type === 'familyMap'">
-            <div class="chart-title">{{ familyActiveMapTitle }}</div>
-            <div style="display:flex;gap:6px;margin-bottom:8px">
-              <button @click="familyMapMode = 'divorce'" :class="['map-toggle-btn', { active: familyMapMode === 'divorce' }]">離婚案件</button>
-              <button @click="familyMapMode = 'inherit'" :class="['map-toggle-btn', { active: familyMapMode === 'inherit' }]">繼承案件</button>
-            </div>
-            <div v-if="!familyActiveMapData?.length" class="no-data">無資料</div>
-            <div v-else class="map-container">
-              <svg viewBox="0 0 400 520" width="100%" style="max-width:480px;margin:0 auto;display:block">
-                <defs><filter id="shadow2"><feDropShadow dx="1" dy="1" stdDeviation="2" flood-opacity="0.15"/></filter><linearGradient id="seaGrad2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e8f4fd"/><stop offset="100%" stop-color="#d0e8f8"/></linearGradient></defs>
-                <rect width="400" height="520" fill="url(#seaGrad2)" rx="12"/>
-                <path :d="TW_OUTLINE" fill="#f0f4e8" stroke="#8faa7a" stroke-width="1.8" filter="url(#shadow2)"/>
-                <template v-for="court in familyActiveMapData" :key="court.court">
-                  <g v-if="COURT_POS[court.court]" @mouseenter="showMapTooltip($event, court)" @mouseleave="hideMapTooltip" style="cursor:pointer">
-                    <circle :cx="COURT_POS[court.court].x" :cy="COURT_POS[court.court].y" :r="Math.max(8, Math.min(26, Math.sqrt(court.pct) * 7))"
-                      :fill="heatColor(court.pct / Math.max(...familyActiveMapData.map(c => c.pct)))" stroke-width="2" :stroke="heatColor(Math.min(1, court.pct / Math.max(...familyActiveMapData.map(c => c.pct)) + 0.2))" opacity="0.85"/>
-                    <text :x="COURT_POS[court.court].x" :y="COURT_POS[court.court].y + Math.max(8, Math.min(26, Math.sqrt(court.pct) * 7)) + 12" text-anchor="middle" font-size="9" fill="#374151" font-weight="600">{{ court.court.replace('地方法院','') }}</text>
-                  </g>
-                </template>
-              </svg>
-              <div class="map-legend"><span style="font-size:9px;color:#6b7280">少</span><div class="map-legend-bar"></div><span style="font-size:9px;color:#6b7280">多</span></div>
-              <div v-if="mapTooltip.show && mapTooltip.data" class="map-tooltip" :style="{ left: mapTooltip.x + 'px', top: mapTooltip.y + 'px' }">
-                <div class="tooltip-title">{{ mapTooltip.data.court }}</div>
-                <div class="tooltip-row">案件數：{{ mapTooltip.data.count.toLocaleString() }}（{{ mapTooltip.data.pct }}%）</div>
-                <div v-if="mapTooltip.data.lawyerRate !== undefined" class="tooltip-row">律師代理率：{{ mapTooltip.data.lawyerRate }}%</div>
-                <!-- Divorce: initiator lawyer rates -->
-                <template v-if="familyMapMode === 'divorce' && mapTooltip.data.initiatorLawyerRates">
-                  <div class="tooltip-cat-title" style="margin-top:4px">主動離婚者請律師比率：</div>
-                  <div v-for="(rate, init) in mapTooltip.data.initiatorLawyerRates" :key="init" class="tooltip-cat">{{ init }}：{{ rate }}%</div>
-                </template>
-              </div>
-            </div>
-          </div>
-
-          <!-- ══ Cause Distribution (family) ══ -->
-          <div class="chart-card" v-if="ch.type === 'causeDist'">
+          <!-- ══ Cause Distribution + Pie (family) ══ -->
+          <div class="chart-card" v-if="ch.type === 'causeAndPie'">
             <div class="chart-title">{{ ch.title }}</div>
             <div class="chart-sub">{{ ch.sub }}</div>
             <div v-if="!charts.causeDist?.length" class="no-data">無資料</div>
@@ -722,6 +667,93 @@ const familyActiveMapTitle = computed(() => familyMapMode.value === 'inherit' ? 
                 <div class="bar-label">{{ item.name }}</div>
                 <div class="bar-track"><div class="bar-fill" :style="{ width: Math.max(2, item.count / (charts.causeDist[0]?.count || 1) * 100) + '%', background: PALETTE[idx % PALETTE.length] }"></div></div>
                 <div class="bar-count">{{ item.count.toLocaleString() }}</div>
+              </div>
+              <!-- Pie chart: initiator distribution (below cause bars) -->
+              <div v-if="charts.initiatorDist?.length" style="margin-top:16px;padding-top:12px;border-top:1px solid #e5e7eb">
+                <div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:8px">主動離婚者分布</div>
+                <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+                  <svg width="140" height="140" viewBox="0 0 140 140">
+                    <template v-for="(item, idx) in charts.initiatorDist" :key="item.name">
+                      <path :d="pieArc(70, 70, 60,
+                        charts.initiatorDist.slice(0, idx).reduce((a, b) => a + b.count, 0) / charts.initiatorDist.reduce((a, b) => a + b.count, 0) * Math.PI * 2,
+                        charts.initiatorDist.slice(0, idx + 1).reduce((a, b) => a + b.count, 0) / charts.initiatorDist.reduce((a, b) => a + b.count, 0) * Math.PI * 2)"
+                        :fill="PIE_COLORS[idx % PIE_COLORS.length]" stroke="#fff" stroke-width="2" opacity="0.85">
+                        <title>{{ item.name }}：{{ item.count }} 件</title>
+                      </path>
+                    </template>
+                    <text x="70" y="67" text-anchor="middle" font-size="10" fill="#374151" font-weight="700">主動</text>
+                    <text x="70" y="80" text-anchor="middle" font-size="10" fill="#374151" font-weight="700">離婚者</text>
+                  </svg>
+                  <div>
+                    <div v-for="(item, idx) in charts.initiatorDist" :key="item.name" style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                      <span class="legend-dot" :style="{ background: PIE_COLORS[idx % PIE_COLORS.length] }"></span>
+                      <span style="font-size:12px;color:#374151;font-weight:600">{{ item.name }}</span>
+                      <span style="font-size:11px;color:#6b7280">{{ item.count }} 件（{{ (item.count / charts.initiatorDist.reduce((a, b) => a + b.count, 0) * 100).toFixed(1) }}%）</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+
+          <!-- ══ Family Court Stacked Bar (divorce/inherit toggle) ══ -->
+          <div class="chart-card" v-if="ch.type === 'familyCourtBar'" style="grid-column: 1 / -1">
+            <div class="chart-title">{{ familyActiveBarTitle }}</div>
+            <div class="chart-sub">{{ familyActiveBarSub }}</div>
+            <div style="display:flex;gap:6px;margin-bottom:8px">
+              <button @click="familyMapMode = 'divorce'" :class="['map-toggle-btn', { active: familyMapMode === 'divorce' }]">離婚案件</button>
+              <button @click="familyMapMode = 'inherit'" :class="['map-toggle-btn', { active: familyMapMode === 'inherit' }]">繼承案件</button>
+            </div>
+            <div v-if="!familyActiveCourtBar?.data?.length" class="no-data">無資料</div>
+            <template v-else>
+              <div style="width:100%;overflow-x:auto">
+                <svg :width="Math.max(500, familyActiveCourtBar.data.length * 34 + 100)" :viewBox="'0 0 ' + Math.max(500, familyActiveCourtBar.data.length * 34 + 100) + ' 280'" preserveAspectRatio="xMinYMin meet">
+                  <!-- Y-axis ticks -->
+                  <template v-for="(tick, ti) in (() => { const maxT = Math.max(...familyActiveCourtBar.data.map(d => d.total), 1); const step = Math.max(1, Math.ceil(maxT / 4 / Math.pow(10, Math.floor(Math.log10(maxT/4||1))))*Math.pow(10, Math.floor(Math.log10(maxT/4||1)))); const ticks = []; for (let t = 0; t <= maxT * 1.15; t += step) ticks.push(t); return ticks })()" :key="'ft'+ti">
+                    <line x1="52" :x2="Math.max(500, familyActiveCourtBar.data.length * 34 + 100) - 50" :y1="200 - (tick / (Math.max(...familyActiveCourtBar.data.map(d => d.total), 1) * 1.15)) * 170" :y2="200 - (tick / (Math.max(...familyActiveCourtBar.data.map(d => d.total), 1) * 1.15)) * 170" stroke="#e5e7eb" stroke-dasharray="3 3"/>
+                    <text x="48" :y="204 - (tick / (Math.max(...familyActiveCourtBar.data.map(d => d.total), 1) * 1.15)) * 170" text-anchor="end" font-size="10" fill="#6b7280">{{ tick }}</text>
+                  </template>
+                  <!-- Right Y-axis: 0-100% -->
+                  <template v-for="p in [0, 25, 50, 75, 100]" :key="'rp'+p">
+                    <text :x="Math.max(500, familyActiveCourtBar.data.length * 34 + 100) - 4" :y="204 - (p / 100) * 170" text-anchor="end" font-size="9" fill="#9ca3af">{{ p }}%</text>
+                  </template>
+                  <!-- Bars -->
+                  <template v-for="(d, di) in familyActiveCourtBar.data" :key="'fb'+di">
+                    <rect :x="58 + di * 34" :y="200 - (d.total / (Math.max(...familyActiveCourtBar.data.map(dd => dd.total), 1) * 1.15)) * 170" width="26" :height="Math.max(0, (d.total / (Math.max(...familyActiveCourtBar.data.map(dd => dd.total), 1) * 1.15)) * 170)" :fill="FAMILY_BAR_COLORS[0]" rx="2" opacity="0.75" stroke="#fff" stroke-width="0.5">
+                      <title>{{ d.abbr }}：{{ d.total }} 件 / 律師代理率 {{ d.lawyerRate }}%</title>
+                    </rect>
+                    <text :x="58 + di * 34 + 13" y="218" text-anchor="middle" font-size="10" fill="#374151" font-weight="600" writing-mode="vertical-rl" style="letter-spacing:1px">{{ d.abbr }}</text>
+                  </template>
+                  <!-- Lawyer rate lines (divorce: 3 lines for initiators) -->
+                  <template v-if="familyMapMode === 'divorce'">
+                    <template v-for="(initK) in ['男方','女方','雙方']" :key="'line'+initK">
+                      <polyline v-if="familyActiveCourtBar.lawyerLines[initK]?.some(v => v !== null)" :points="familyActiveCourtBar.data.map((d, i) => { const rate = familyActiveCourtBar.lawyerLines[initK]?.[i]; return rate != null ? (58 + i * 34 + 13) + ',' + (200 - (rate / 100) * 170) : '' }).filter(Boolean).join(' ')" fill="none" :stroke="INITIATOR_LINE_COLORS[initK]" stroke-width="2" stroke-linejoin="round"/>
+                      <template v-for="(d, di) in familyActiveCourtBar.data" :key="'dot'+initK+di">
+                        <circle v-if="familyActiveCourtBar.lawyerLines[initK]?.[di] != null" :cx="58 + di * 34 + 13" :cy="200 - (familyActiveCourtBar.lawyerLines[initK][di] / 100) * 170" r="3" :fill="INITIATOR_LINE_COLORS[initK]" stroke="#fff" stroke-width="1">
+                          <title>{{ d.abbr }} {{ initK }}律師代理率：{{ familyActiveCourtBar.lawyerLines[initK][di] }}%</title>
+                        </circle>
+                      </template>
+                    </template>
+                  </template>
+                  <!-- Inherit: single lawyer rate line -->
+                  <template v-if="familyMapMode === 'inherit'">
+                    <polyline :points="familyActiveCourtBar.data.map((d, i) => (58 + i * 34 + 13) + ',' + (200 - ((d.lawyerRate || 0) / 100) * 170)).join(' ')" fill="none" stroke="#059669" stroke-width="2" stroke-linejoin="round"/>
+                    <template v-for="(d, di) in familyActiveCourtBar.data" :key="'idot'+di">
+                      <circle :cx="58 + di * 34 + 13" :cy="200 - ((d.lawyerRate || 0) / 100) * 170" r="3" fill="#059669" stroke="#fff" stroke-width="1">
+                        <title>{{ d.abbr }} 律師代理率：{{ d.lawyerRate }}%</title>
+                      </circle>
+                    </template>
+                  </template>
+                </svg>
+              </div>
+              <div class="legend-row">
+                <div class="legend-item"><span class="legend-dot" :style="{ background: FAMILY_BAR_COLORS[0] }"></span>案件數（左軸）</div>
+                <template v-if="familyMapMode === 'divorce'">
+                  <div v-for="k in ['男方','女方','雙方']" :key="k" class="legend-item"><span style="width:16px;height:3px;display:inline-block;border-radius:2px" :style="{ background: INITIATOR_LINE_COLORS[k] }"></span>{{ k }}律師代理率（右軸%）</div>
+                </template>
+                <template v-else>
+                  <div class="legend-item"><span style="width:16px;height:3px;background:#059669;display:inline-block;border-radius:2px"></span>律師代理率（右軸%）</div>
+                </template>
               </div>
             </template>
           </div>
@@ -741,93 +773,19 @@ const familyActiveMapTitle = computed(() => familyMapMode.value === 'inherit' ? 
                   <path :d="d.path" fill="rgba(79,134,247,0.22)" stroke="rgba(79,134,247,0.90)" stroke-width="1.5" />
                   <line :x1="d.medianX" :x2="d.medianX" :y1="d.y - 22" :y2="d.y + 22" stroke="#D9A93A" stroke-width="2.4" />
                   <circle :cx="d.meanX" :cy="d.y" r="4.8" fill="#35B679" stroke="#fff" stroke-width="1.8" />
+                  <!-- Outlier dots -->
+                  <circle v-for="(ol, oi) in d.outlierPts" :key="'ol'+oi" :cx="ol.cx" :cy="d.y + (oi % 5 - 2) * 3" r="2.5" fill="#E45C5C" opacity="0.5" stroke="none">
+                    <title>離群值：{{ formatMetricValue(ol.val, 'imprisonment', 1) }} 月</title>
+                  </circle>
                   <text :x="d.meanNR ? vSvg.W - vSvg.RM - 6 : Math.min(vSvg.W - vSvg.RM - 6, d.meanX + 10)" :y="d.y - 12" :text-anchor="d.meanNR ? 'end' : 'start'" font-size="15" fill="#059669" font-weight="700">平均 {{ d.meanLabel }}</text>
                   <text :x="d.medNR ? vSvg.W - vSvg.RM - 6 : Math.min(vSvg.W - vSvg.RM - 6, d.medianX + 10)" :y="d.y + 22" :text-anchor="d.medNR ? 'end' : 'start'" font-size="15" fill="#B8860B" font-weight="700">中位 {{ d.medLabel }}</text>
                   <text :x="vSvg.W - vSvg.RM + 8" :y="d.y + 6" text-anchor="start" font-size="15" fill="#374151" font-weight="600">n={{ d.n }}</text>
+                  <text v-if="d.outlierCount > 0" :x="vSvg.W - vSvg.RM + 8" :y="d.y + 20" text-anchor="start" font-size="11" fill="#E45C5C" font-weight="500">{{ d.outlierCount }}離群</text>
                 </template>
               </svg>
             </div>
           </div>
 
-          <!-- ══ Box-Whisker ══ -->
-          <div class="chart-card" v-if="ch.type === 'boxWhisker'">
-            <div class="chart-title">{{ ch.title }}</div>
-            <div class="chart-sub">{{ ch.sub }}</div>
-            <div v-if="!bSvg" class="no-data">無資料</div>
-            <template v-else>
-              <div style="width:100%;overflow-x:auto">
-                <svg width="100%" :viewBox="`0 0 ${bSvg.W} ${bSvg.H}`" preserveAspectRatio="xMinYMin meet">
-                  <template v-for="(t, ti) in bSvg.tickData" :key="ti"><line :x1="t.x" :x2="t.x" :y1="bSvg.TM" :y2="bSvg.H - bSvg.BM + 10" stroke="#e5e7eb" stroke-dasharray="3 3" /><text :x="t.x" :y="bSvg.H - bSvg.BM + 30" text-anchor="middle" font-size="16" fill="#374151" font-weight="600">{{ t.label }}</text></template>
-                  <line :x1="bSvg.LM" :x2="bSvg.W - bSvg.RM" :y1="bSvg.H - bSvg.BM + 10" :y2="bSvg.H - bSvg.BM + 10" stroke="#9ca3af" />
-                  <text :x="(bSvg.LM + bSvg.W - bSvg.RM) / 2" :y="bSvg.H - 16" text-anchor="middle" font-size="16" fill="#6b7280" font-weight="600">{{ bSvg.axisLabel }}</text>
-                  <template v-for="d in bSvg.rows" :key="d.law">
-                    <line :x1="bSvg.LM" :x2="bSvg.W - bSvg.RM" :y1="d.y" :y2="d.y" stroke="#f1f5f9" />
-                    <text :x="bSvg.LM - 10" :y="d.y" text-anchor="end" font-size="18" fill="#111827" font-weight="600"><tspan v-for="(line, li) in d.labelLines" :key="li" :x="bSvg.LM - 10" :dy="li === 0 ? -14 : 18">{{ line }}</tspan></text>
-                    <line :x1="d.wlX" :x2="d.whX" :y1="d.y" :y2="d.y" stroke="#111827" stroke-width="1.8" /><line :x1="d.wlX" :x2="d.wlX" :y1="d.y - 10" :y2="d.y + 10" stroke="#111827" stroke-width="1.8" /><line :x1="d.whX" :x2="d.whX" :y1="d.y - 10" :y2="d.y + 10" stroke="#111827" stroke-width="1.8" />
-                    <rect :x="d.q1X" :y="d.y - 12" :width="d.boxW" height="24" rx="4" :fill="d.color" opacity="0.88" stroke="#111827" stroke-width="1" />
-                    <line :x1="d.medianX" :x2="d.medianX" :y1="d.y - 12" :y2="d.y + 12" stroke="#111827" stroke-width="2.4" />
-                    <circle v-for="(ol, oi) in d.outlierPts" :key="oi" :cx="ol.cx" :cy="d.y" r="4.5" fill="#fff" stroke="#111827" stroke-width="1.6" />
-                    <text :x="d.noteX" :y="d.y - 12" :text-anchor="d.noteAnc" font-size="15" fill="#111827" font-weight="700">中位 {{ d.medLabel }}</text>
-                    <text :x="d.noteX" :y="d.y + 22" :text-anchor="d.noteAnc" font-size="15" fill="#374151" font-weight="700">IQR {{ d.iqrLabel }}</text>
-                  </template>
-                </svg>
-              </div>
-              <div v-if="bSvg.legend?.length" class="legend-row" style="margin-top:10px">
-                <div v-for="it in bSvg.legend" :key="it.label" class="legend-item"><span class="legend-dot" :style="{ background: it.color }"></span>{{ it.label }}</div>
-                <div class="legend-item"><span style="width:12px;height:2px;background:#111827;display:inline-block"></span>中位數</div>
-                <div class="legend-item"><span style="width:9px;height:9px;border-radius:999px;border:1.6px solid #111827;background:#fff;display:inline-block"></span>離群值</div>
-              </div>
-            </template>
-          </div>
-
-          <!-- ══ Divorce Analysis (family) ══ -->
-          <div class="chart-card" v-if="ch.type === 'divorceAnalysis'">
-            <div class="chart-title">{{ ch.title }}</div>
-            <div class="chart-sub">{{ ch.sub }}</div>
-            <div v-if="!charts.divorceAnalysis" class="no-data">無資料</div>
-            <template v-else>
-              <!-- Pie chart: initiator distribution -->
-              <div v-if="charts.divorceAnalysis.initiatorDist?.length" style="display:flex;align-items:center;gap:20px;margin-bottom:16px;flex-wrap:wrap">
-                <svg width="160" height="160" viewBox="0 0 160 160">
-                  <template v-for="(item, idx) in charts.divorceAnalysis.initiatorDist" :key="item.name">
-                    <path :d="pieArc(80, 80, 70,
-                      charts.divorceAnalysis.initiatorDist.slice(0, idx).reduce((a, b) => a + b.count, 0) / charts.divorceAnalysis.initiatorDist.reduce((a, b) => a + b.count, 0) * Math.PI * 2,
-                      charts.divorceAnalysis.initiatorDist.slice(0, idx + 1).reduce((a, b) => a + b.count, 0) / charts.divorceAnalysis.initiatorDist.reduce((a, b) => a + b.count, 0) * Math.PI * 2)"
-                      :fill="PIE_COLORS[idx % PIE_COLORS.length]" stroke="#fff" stroke-width="2" opacity="0.85">
-                      <title>{{ item.name }}：{{ item.count }} 件</title>
-                    </path>
-                  </template>
-                  <text x="80" y="78" text-anchor="middle" font-size="11" fill="#374151" font-weight="700">主動</text>
-                  <text x="80" y="92" text-anchor="middle" font-size="11" fill="#374151" font-weight="700">離婚者</text>
-                </svg>
-                <div>
-                  <div v-for="(item, idx) in charts.divorceAnalysis.initiatorDist" :key="item.name" style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-                    <span class="legend-dot" :style="{ background: PIE_COLORS[idx % PIE_COLORS.length] }"></span>
-                    <span style="font-size:12px;color:#374151;font-weight:600">{{ item.name }}</span>
-                    <span style="font-size:11px;color:#6b7280">{{ item.count }} 件（{{ (item.count / charts.divorceAnalysis.initiatorDist.reduce((a, b) => a + b.count, 0) * 100).toFixed(1) }}%）</span>
-                  </div>
-                </div>
-              </div>
-              <!-- Cross analysis: for each initiator, stacked bar of reason × ending -->
-              <div v-if="charts.divorceAnalysis.crossAnalysis?.length">
-                <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px">主動離婚者 × 離婚原因 × 終結情形</div>
-                <div v-for="cross in charts.divorceAnalysis.crossAnalysis" :key="cross.initiator" style="margin-bottom:12px">
-                  <div style="font-size:11px;font-weight:700;color:#2563eb;margin-bottom:4px">{{ cross.initiator }}</div>
-                  <template v-if="cross.stack?.data?.length">
-                    <svg v-if="stackedBarSvg(cross.stack)" :viewBox="`0 0 ${stackedBarSvg(cross.stack).W} ${stackedBarSvg(cross.stack).H}`" width="100%" preserveAspectRatio="xMinYMin meet">
-                      <template v-for="(row, ri) in stackedBarSvg(cross.stack).rows" :key="ri">
-                        <text :x="stackedBarSvg(cross.stack).LM - 6" :y="row.y + 20" text-anchor="end" font-size="10" fill="#111827" font-weight="500"><tspan v-for="(line, li) in row.labelLines" :key="li" :x="stackedBarSvg(cross.stack).LM - 6" :dy="li === 0 ? 0 : 12">{{ line }}</tspan></text>
-                        <rect v-for="b in row.bars" :key="b.seg" :x="b.x" :y="b.y" :width="Math.max(0, b.w)" :height="b.h" :fill="b.fill" rx="2"><title>{{ b.seg }}：{{ fmtPctTenths(b.tenths) }}（{{ b.count }} 件）</title></rect>
-                      </template>
-                    </svg>
-                  </template>
-                </div>
-                <div class="legend-row" v-if="charts.divorceAnalysis.crossAnalysis[0]?.stack?.segments">
-                  <div v-for="(seg, si) in charts.divorceAnalysis.crossAnalysis[0].stack.segments" :key="seg" class="legend-item"><span class="legend-dot" :style="{ background: PALETTE[si % PALETTE.length] }"></span>{{ seg }}</div>
-                </div>
-              </div>
-            </template>
-          </div>
 
         </template>
       </div>
@@ -931,7 +889,7 @@ const familyActiveMapTitle = computed(() => familyMapMode.value === 'inherit' ? 
 .acc-title { font-size: 11px; font-weight: 600; color: #374151; }
 .acc-badge { background: #2563eb; color: #fff; font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: 999px; }
 .acc-body { padding: 8px 10px; background: #fff; }
-.main-area { flex: 1; overflow-y: auto; padding: 20px 24px; min-width: 0; transition: background 0.3s; }
+.main-area { flex: 1; overflow-y: auto; padding: 20px 24px; min-width: 0; transition: background 0.3s; width: 100%; }
 .main-area.bg-criminal { background: #f0f5ff; }
 .main-area.bg-civil { background: #f0fdf4; }
 .main-area.bg-family { background: #fffbeb; }
@@ -939,41 +897,41 @@ const familyActiveMapTitle = computed(() => familyMapMode.value === 'inherit' ? 
 .btn-dl { padding: 8px 16px; border-radius: 8px; border: 1px solid #93c5fd; background: #eff6ff; color: #2563eb; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
 .btn-dl:disabled { opacity: 0.4; cursor: not-allowed; }
 .type-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
-.type-tab { padding: 7px 16px; border-radius: 8px; border: 1px solid #d1d5db; background: #fff; color: #4b5563; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.2s; }
+.type-tab { padding: 7px 16px; border-radius: 8px; border: 1px solid #d1d5db; background: #fff; color: #4b5563; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.2s; }
 .type-tab.tab-criminal.active { border-color: #2563eb; background: #2563eb; color: #fff; box-shadow: 0 2px 6px rgba(37,99,235,0.3); }
 .type-tab.tab-civil.active { border-color: #059669; background: #059669; color: #fff; box-shadow: 0 2px 6px rgba(5,150,105,0.3); }
 .type-tab.tab-family.active { border-color: #d97706; background: #d97706; color: #fff; box-shadow: 0 2px 6px rgba(217,119,6,0.3); }
 .tab-count { font-weight: 400; opacity: 0.7; font-size: 10px; }
 .type-tab.active .tab-count { opacity: 0.85; }
-.filter-summary { font-size: 11px; color: #4b5563; margin-bottom: 12px; padding: 8px 12px; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; line-height: 1.5; }
+.filter-summary { font-size: 13px; color: #4b5563; margin-bottom: 12px; padding: 8px 12px; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; line-height: 1.5; }
 .loading-overlay { padding: 40px; text-align: center; color: #6b7280; font-size: 16px; }
 .error-bar { padding: 10px 14px; margin-bottom: 12px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; color: #dc2626; font-size: 12px; }
 .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin-bottom: 16px; }
 .stat-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px 14px; position: relative; overflow: hidden; }
 .stat-accent { position: absolute; top: 0; left: 0; width: 4px; height: 100%; }
-.stat-label { font-size: 10px; color: #6b7280; margin-bottom: 4px; }
-.stat-value { font-size: 22px; font-weight: 700; color: #111827; }
-.chart-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 14px; margin-bottom: 16px; }
+.stat-label { font-size: 12px; color: #6b7280; margin-bottom: 4px; }
+.stat-value { font-size: 24px; font-weight: 700; color: #111827; }
+.chart-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 14px; margin-bottom: 16px; width: 100%; }
 .chart-grid-2col { grid-template-columns: repeat(2, 1fr); }
-@media (max-width: 900px) { .chart-grid-2col { grid-template-columns: 1fr; } }
-.chart-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; }
-.chart-title { font-size: 14px; font-weight: 700; color: #111827; }
-.chart-sub { font-size: 11px; color: #6b7280; margin-bottom: 10px; }
-.no-data { padding: 32px; text-align: center; color: #9ca3af; font-size: 12px; }
-.heatmap { border-collapse: collapse; font-size: 10px; width: 100%; table-layout: auto; }
-.heatmap th { padding: 4px 6px; text-align: center; font-weight: 600; color: #374151; font-size: 9px; border-bottom: 1px solid #e5e7eb; }
+@media (max-width: 900px) { .chart-grid-2col { grid-template-columns: 1fr; } .chart-grid { grid-template-columns: 1fr; } }
+.chart-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; min-width: 0; overflow: hidden; }
+.chart-title { font-size: 16px; font-weight: 700; color: #111827; }
+.chart-sub { font-size: 13px; color: #6b7280; margin-bottom: 10px; }
+.no-data { padding: 32px; text-align: center; color: #9ca3af; font-size: 14px; }
+.heatmap { border-collapse: collapse; font-size: 12px; width: 100%; table-layout: auto; }
+.heatmap th { padding: 4px 6px; text-align: center; font-weight: 600; color: #374151; font-size: 11px; border-bottom: 1px solid #e5e7eb; }
 .hm-col-header { white-space: normal; word-break: break-all; max-width: 60px; min-width: 36px; line-height: 1.3; }
-.heatmap .hm-label { text-align: right; padding-right: 8px; font-weight: 600; color: #374151; white-space: nowrap; font-size: 10px; }
-.heatmap .hm-cell { text-align: center; padding: 4px 2px; font-size: 10px; font-weight: 500; border: 1px solid rgba(255,255,255,0.3); min-width: 32px; }
+.heatmap .hm-label { text-align: right; padding-right: 8px; font-weight: 600; color: #374151; white-space: nowrap; font-size: 12px; }
+.heatmap .hm-cell { text-align: center; padding: 5px 3px; font-size: 12px; font-weight: 500; border: 1px solid rgba(255,255,255,0.3); min-width: 36px; }
 .legend-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; justify-content: center; }
-.legend-item { display: flex; align-items: center; gap: 4px; font-size: 10px; color: #4b5563; }
+.legend-item { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #4b5563; }
 .legend-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
 .table-wrap { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; max-width: 1000px; margin: 0 auto; }
 .table-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid #e5e7eb; }
-.table-col-header { display: grid; padding: 8px 16px; background: #f9fafb; border-bottom: 1px solid #e5e7eb; font-size: 10px; font-weight: 700; color: #6b7280; gap: 8px; }
+.table-col-header { display: grid; padding: 8px 16px; background: #f9fafb; border-bottom: 1px solid #e5e7eb; font-size: 12px; font-weight: 700; color: #6b7280; gap: 8px; }
 .grid-criminal { grid-template-columns: 2.5fr 1fr 2fr 1fr 0.8fr; }
 .grid-civil { grid-template-columns: 2.5fr 1fr 2fr 1fr 1fr; }
-.table-row { display: grid; padding: 8px 16px; border-bottom: 1px solid #f1f5f9; font-size: 11px; gap: 8px; align-items: center; }
+.table-row { display: grid; padding: 8px 16px; border-bottom: 1px solid #f1f5f9; font-size: 13px; gap: 8px; align-items: center; }
 .table-row:hover { background: #f8fafc; }
 .table-row.expanded { background: #eff6ff; }
 .table-jid { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 4px; }
@@ -999,11 +957,11 @@ const familyActiveMapTitle = computed(() => familyMapMode.value === 'inherit' ? 
 .tooltip-cat { font-size: 10px; color: #374151; margin-bottom: 1px; }
 .map-legend { display: flex; align-items: center; gap: 6px; justify-content: center; margin-top: 8px; }
 .map-legend-bar { width: 120px; height: 10px; border-radius: 5px; background: linear-gradient(to right, rgb(76,175,80), rgb(240,230,60), rgb(255,120,40), rgb(220,40,40)); }
-.map-toggle-btn { padding: 4px 14px; border-radius: 999px; border: 1px solid #d1d5db; background: #fff; color: #6b7280; font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.2s; }
+.map-toggle-btn { padding: 5px 16px; border-radius: 999px; border: 1px solid #d1d5db; background: #fff; color: #6b7280; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.2s; }
 .map-toggle-btn.active { border-color: #2563eb; background: #eff6ff; color: #2563eb; }
 .bar-item { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
-.bar-label { font-size: 10px; color: #374151; min-width: 80px; text-align: right; flex-shrink: 0; }
-.bar-track { flex: 1; height: 16px; background: #f1f5f9; border-radius: 4px; overflow: hidden; }
+.bar-label { font-size: 12px; color: #374151; min-width: 80px; text-align: right; flex-shrink: 0; }
+.bar-track { flex: 1; height: 18px; background: #f1f5f9; border-radius: 4px; overflow: hidden; }
 .bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
-.bar-count { font-size: 10px; color: #6b7280; min-width: 50px; }
+.bar-count { font-size: 12px; color: #6b7280; min-width: 50px; }
 </style>
