@@ -672,7 +672,7 @@ const familyActiveBarSub = computed(() => familyMapMode.value === 'inherit' ? 'å
                       <path :d="pieArc(70, 70, 60,
                         charts.initiatorDist.slice(0, idx).reduce((a, b) => a + b.count, 0) / charts.initiatorDist.reduce((a, b) => a + b.count, 0) * Math.PI * 2,
                         charts.initiatorDist.slice(0, idx + 1).reduce((a, b) => a + b.count, 0) / charts.initiatorDist.reduce((a, b) => a + b.count, 0) * Math.PI * 2)"
-                        :fill="PIE_COLORS[idx % PIE_COLORS.length]" stroke="#fff" stroke-width="2" opacity="0.85">
+                        :fill="INITIATOR_LINE_COLORS[item.name] || PIE_COLORS[idx % PIE_COLORS.length]" stroke="#fff" stroke-width="2" opacity="0.85">
                         <title>{{ item.name }}ï¼š{{ item.count }} ä»¶</title>
                       </path>
                     </template>
@@ -681,7 +681,7 @@ const familyActiveBarSub = computed(() => familyMapMode.value === 'inherit' ? 'å
                   </svg>
                   <div>
                     <div v-for="(item, idx) in charts.initiatorDist" :key="item.name" style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-                      <span class="legend-dot" :style="{ background: PIE_COLORS[idx % PIE_COLORS.length] }"></span>
+                      <span class="legend-dot" :style="{ background: INITIATOR_LINE_COLORS[item.name] || PIE_COLORS[idx % PIE_COLORS.length] }"></span>
                       <span style="font-size:12px;color:#374151;font-weight:600">{{ item.name }}</span>
                       <span style="font-size:11px;color:#6b7280">{{ item.count }} ä»¶ï¼ˆ{{ (item.count / charts.initiatorDist.reduce((a, b) => a + b.count, 0) * 100).toFixed(1) }}%ï¼‰</span>
                     </div>
@@ -903,7 +903,7 @@ const familyActiveBarSub = computed(() => familyMapMode.value === 'inherit' ? 'å
 .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 14px; margin-bottom: 16px; width: 100%; }
 .chart-grid-2col { grid-template-columns: repeat(2, 1fr); }
 @media (max-width: 900px) { .chart-grid-2col { grid-template-columns: 1fr; } .chart-grid { grid-template-columns: 1fr; } }
-.chart-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; min-width: 0; overflow: hidden; }
+.chart-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; min-width: 0; overflow: visible; }
 .chart-title { font-size: 16px; font-weight: 700; color: #111827; }
 .chart-sub { font-size: 13px; color: #6b7280; margin-bottom: 10px; }
 .no-data { padding: 32px; text-align: center; color: #9ca3af; font-size: 14px; }
