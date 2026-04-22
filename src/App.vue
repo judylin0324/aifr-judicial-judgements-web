@@ -302,10 +302,14 @@ function violinSvgData(violinData) {
 //  Section 9 — Computed Chart Data
 // ═══════════════════════════════════════════════════════════
 const charts = computed(() => {
-  const rawCharts = dashData.value?.charts || {};
+  if (!dashData.value?.charts) return {};
+  
+  // 徹底深拷貝，100% 確保不會意外觸發 Vue proxy 的無窮迴圈
+  const rawCharts = JSON.parse(JSON.stringify(dashData.value.charts));
+  
   // 【修改 4：前端防呆濾除塗銷】 排除 actionSubjectHeatmap 內的「塗銷」動作/標的
   if (rawCharts.actionSubjectHeatmap && rawCharts.actionSubjectHeatmap.xLabels) {
-    const hm = JSON.parse(JSON.stringify(rawCharts.actionSubjectHeatmap));
+    const hm = rawCharts.actionSubjectHeatmap;
     const xIdx = hm.xLabels.indexOf('塗銷');
     if (xIdx > -1) {
       hm.xLabels.splice(xIdx, 1);
@@ -316,9 +320,11 @@ const charts = computed(() => {
       hm.yLabels.splice(yIdx, 1);
       hm.matrix.splice(yIdx, 1);
     }
-    hm.max = Math.max(0, ...hm.matrix.flat());
-    rawCharts.actionSubjectHeatmap = hm;
+    
+    // 捨棄 .flat()，改用安全的 .reduce() 與 Math.max 確保相容所有瀏覽器
+    hm.max = hm.matrix.reduce((max, row) => Math.max(max, ...row), 0);
   }
+  
   return rawCharts;
 })
 
@@ -454,7 +460,7 @@ const familyActiveBarSub = computed(() => familyMapMode.value === 'inherit' ? '�
         <div v-for="s in statCards" :key="s.l" class="stat-card"><div class="stat-accent" :style="{ background: s.a }"></div><div class="stat-label">{{ s.l }}</div><div class="stat-value">{{ s.raw ? s.v : (typeof s.v === 'number' ? s.v.toLocaleString() : (s.v ?? '-')) }}</div></div>
       </div>
 
-      <!-- Charts -->
+<!-- Charts -->
       <div :class="['chart-grid', { 'chart-grid-2col': activeType === 'criminal_litigation' || activeType === 'civil_litigation' }]" v-if="dashData">
         <template v-for="ch in chartLayout" :key="ch.key">
 
@@ -508,20 +514,22 @@ const familyActiveBarSub = computed(() => familyMapMode.value === 'inherit' ? '�
             </template>
           </div>
 
-          <!-- ══ Stacked Bar (Height matches violin, Font sized up ══ -->
+          <!-- ══ Stacked Bar (Height matches violin, Font sized up) ══ -->
           <div class="chart-card" v-if="ch.type === 'stackedBar'">
             <div class="chart-title">{{ ch.title }}</div>
             <div class="chart-sub">{{ ch.sub }}</div>
             <template v-if="charts[ch.key]?.data?.length">
-              <svg v-if="stackedBarSvg(charts[ch.key], vSvg?.H || 0)" :viewBox="`0 0 ${stackedBarSvg(charts[ch.key], vSvg?.H || 0).W} ${stackedBarSvg(charts[ch.key], vSvg?.H || 0).H}`" width="100%" preserveAspectRatio="xMinYMin meet">
-                <template v-for="(row, ri) in stackedBarSvg(charts[ch.key], vSvg?.H || 0).rows" :key="ri">
-                  <text :x="stackedBarSvg(charts[ch.key], vSvg?.H || 0).LM - 10" :y="row.yCenter" text-anchor="end" font-size="18" fill="#111827" font-weight="600" dominant-baseline="central">
-                    <tspan v-for="(line, li) in row.labelLines" :key="li" :x="stackedBarSvg(charts[ch.key], vSvg?.H || 0).LM - 10" :dy="li === 0 ? (row.labelLines.length === 1 ? 6 : -4) : 22">{{ line }}</tspan>
-                  </text>
-                  <rect v-for="b in row.bars" :key="b.seg" :x="b.x" :y="b.y" :width="Math.max(0, b.w)" :height="b.h" :fill="b.fill" rx="2"><title>{{ b.seg }}：{{ fmtPctTenths(b.tenths) }}（{{ b.count }} 件）</title></rect>
-                </template>
-                <text v-for="p in [0, 25, 50, 75, 100]" :key="p" :x="stackedBarSvg(charts[ch.key], vSvg?.H || 0).LM + (p / 100) * stackedBarSvg(charts[ch.key], vSvg?.H || 0).barW" :y="stackedBarSvg(charts[ch.key], vSvg?.H || 0).H - stackedBarSvg(charts[ch.key], vSvg?.H || 0).BM + 24" text-anchor="middle" font-size="16" fill="#374151" font-weight="600">{{ p }}%</text>
-              </svg>
+              <template v-for="svgData in [stackedBarSvg(charts[ch.key], vSvg?.H || 0)]" :key="'stack'">
+                <svg v-if="svgData" :viewBox="`0 0 ${svgData.W} ${svgData.H}`" width="100%" preserveAspectRatio="xMinYMin meet">
+                  <template v-for="(row, ri) in svgData.rows" :key="ri">
+                    <text :x="svgData.LM - 10" :y="row.yCenter" text-anchor="end" font-size="18" fill="#111827" font-weight="600" dominant-baseline="central">
+                      <tspan v-for="(line, li) in row.labelLines" :key="li" :x="svgData.LM - 10" :dy="li === 0 ? (row.labelLines.length === 1 ? 6 : -4) : 22">{{ line }}</tspan>
+                    </text>
+                    <rect v-for="b in row.bars" :key="b.seg" :x="b.x" :y="b.y" :width="Math.max(0, b.w)" :height="b.h" :fill="b.fill" rx="2"><title>{{ b.seg }}：{{ fmtPctTenths(b.tenths) }}（{{ b.count }} 件）</title></rect>
+                  </template>
+                  <text v-for="p in [0, 25, 50, 75, 100]" :key="p" :x="svgData.LM + (p / 100) * svgData.barW" :y="svgData.H - svgData.BM + 24" text-anchor="middle" font-size="16" fill="#374151" font-weight="600">{{ p }}%</text>
+                </svg>
+              </template>
               <div class="legend-row"><div v-for="(seg, si) in charts[ch.key].segments" :key="seg" class="legend-item"><span class="legend-dot" :style="{ background: PALETTE[si % PALETTE.length] }"></span>{{ seg }}</div></div>
             </template>
             <div v-else class="no-data">無資料</div>
@@ -533,23 +541,25 @@ const familyActiveBarSub = computed(() => familyMapMode.value === 'inherit' ? '�
             <div class="chart-title">{{ ch.title }}</div>
             <div class="chart-sub">{{ ch.sub }}</div>
             <template v-if="charts[ch.key]?.data?.length">
-              <div style="width:100%;overflow-x:auto" v-if="dualAxisBarSvg(charts[ch.key])">
-                <svg width="100%" :viewBox="`0 0 ${dualAxisBarSvg(charts[ch.key]).W} ${dualAxisBarSvg(charts[ch.key]).H}`" preserveAspectRatio="xMinYMin meet">
-                  <template v-for="(t, ti) in dualAxisBarSvg(charts[ch.key]).yTicks" :key="'yt'+ti">
-                    <line :x1="dualAxisBarSvg(charts[ch.key]).LM" :x2="dualAxisBarSvg(charts[ch.key]).W - dualAxisBarSvg(charts[ch.key]).RM" :y1="dualAxisBarSvg(charts[ch.key]).yS(t)" :y2="dualAxisBarSvg(charts[ch.key]).yS(t)" stroke="#e5e7eb" stroke-dasharray="3 3" />
-                    <text :x="dualAxisBarSvg(charts[ch.key]).LM - 8" :y="dualAxisBarSvg(charts[ch.key]).yS(t) + 4" text-anchor="end" font-size="10" fill="#6b7280">{{ t.toLocaleString() }}</text>
-                  </template>
-                  <template v-for="(g, gi) in dualAxisBarSvg(charts[ch.key]).groups" :key="'g'+gi">
-                    <rect v-for="b in g.bars" :key="b.seg" :x="b.x" :y="b.y" :width="b.w" :height="b.h" :fill="b.fill" rx="2"><title>{{ g.name }} - {{ b.seg }}：{{ b.count.toLocaleString() }} 件</title></rect>
-                    <text :x="g.gx + 35" :y="dualAxisBarSvg(charts[ch.key]).TM + dualAxisBarSvg(charts[ch.key]).plotH + 16" text-anchor="middle" font-size="10" fill="#374151" font-weight="500"><tspan v-for="(line, li) in wrapTextLines(g.name, 6, 2)" :key="li" :x="g.gx + 35" :dy="li === 0 ? 0 : 12">{{ line }}</tspan></text>
-                  </template>
-                  <path v-if="dualAxisBarSvg(charts[ch.key]).linePath" :d="dualAxisBarSvg(charts[ch.key]).linePath" fill="none" stroke="#E45C5C" stroke-width="2.5" stroke-linejoin="round" />
-                  <template v-for="(g, gi) in dualAxisBarSvg(charts[ch.key]).groups" :key="'dot'+gi">
-                    <circle :cx="g.lineX" :cy="g.lineY" r="4" fill="#E45C5C" stroke="#fff" stroke-width="1.5" />
-                    <text :x="g.lineX" :y="g.lineY - 8" text-anchor="middle" font-size="9" fill="#E45C5C" font-weight="700">{{ g.pct }}%</text>
-                  </template>
-                </svg>
-              </div>
+              <template v-for="svgData in [dualAxisBarSvg(charts[ch.key])]" :key="'dual1'">
+                <div style="width:100%;overflow-x:auto" v-if="svgData">
+                  <svg width="100%" :viewBox="`0 0 ${svgData.W} ${svgData.H}`" preserveAspectRatio="xMinYMin meet">
+                    <template v-for="(t, ti) in svgData.yTicks" :key="'yt'+ti">
+                      <line :x1="svgData.LM" :x2="svgData.W - svgData.RM" :y1="svgData.yS(t)" :y2="svgData.yS(t)" stroke="#e5e7eb" stroke-dasharray="3 3" />
+                      <text :x="svgData.LM - 8" :y="svgData.yS(t) + 4" text-anchor="end" font-size="10" fill="#6b7280">{{ t.toLocaleString() }}</text>
+                    </template>
+                    <template v-for="(g, gi) in svgData.groups" :key="'g'+gi">
+                      <rect v-for="b in g.bars" :key="b.seg" :x="b.x" :y="b.y" :width="b.w" :height="b.h" :fill="b.fill" rx="2"><title>{{ g.name }} - {{ b.seg }}：{{ b.count.toLocaleString() }} 件</title></rect>
+                      <text :x="g.gx + 35" :y="svgData.TM + svgData.plotH + 16" text-anchor="middle" font-size="10" fill="#374151" font-weight="500"><tspan v-for="(line, li) in wrapTextLines(g.name, 6, 2)" :key="li" :x="g.gx + 35" :dy="li === 0 ? 0 : 12">{{ line }}</tspan></text>
+                    </template>
+                    <path v-if="svgData.linePath" :d="svgData.linePath" fill="none" stroke="#E45C5C" stroke-width="2.5" stroke-linejoin="round" />
+                    <template v-for="(g, gi) in svgData.groups" :key="'dot'+gi">
+                      <circle :cx="g.lineX" :cy="g.lineY" r="4" fill="#E45C5C" stroke="#fff" stroke-width="1.5" />
+                      <text :x="g.lineX" :y="g.lineY - 8" text-anchor="middle" font-size="9" fill="#E45C5C" font-weight="700">{{ g.pct }}%</text>
+                    </template>
+                  </svg>
+                </div>
+              </template>
               <div class="legend-row">
                 <div v-for="(seg, si) in charts[ch.key].segments" :key="seg" class="legend-item"><span class="legend-dot" :style="{ background: PALETTE[si % PALETTE.length] }"></span>{{ seg }}</div>
                 <div class="legend-item"><span style="width:16px;height:3px;background:#E45C5C;display:inline-block;border-radius:2px"></span> 占比線</div>
@@ -582,23 +592,25 @@ const familyActiveBarSub = computed(() => familyMapMode.value === 'inherit' ? '�
             <div class="chart-title">{{ ch.title }}</div>
             <div class="chart-sub">{{ ch.sub }}</div>
             <template v-if="charts[ch.key]?.data?.length">
-              <div style="width:100%;overflow-x:auto" v-if="dualAxisBarSvg(charts[ch.key])">
-                <svg width="100%" :viewBox="`0 0 ${dualAxisBarSvg(charts[ch.key]).W} ${dualAxisBarSvg(charts[ch.key]).H}`" preserveAspectRatio="xMinYMin meet">
-                  <template v-for="(t, ti) in dualAxisBarSvg(charts[ch.key]).yTicks" :key="'yt'+ti">
-                    <line :x1="dualAxisBarSvg(charts[ch.key]).LM" :x2="dualAxisBarSvg(charts[ch.key]).W - dualAxisBarSvg(charts[ch.key]).RM" :y1="dualAxisBarSvg(charts[ch.key]).yS(t)" :y2="dualAxisBarSvg(charts[ch.key]).yS(t)" stroke="#e5e7eb" stroke-dasharray="3 3" />
-                    <text :x="dualAxisBarSvg(charts[ch.key]).LM - 8" :y="dualAxisBarSvg(charts[ch.key]).yS(t) + 4" text-anchor="end" font-size="10" fill="#6b7280">{{ t.toLocaleString() }}</text>
-                  </template>
-                  <template v-for="(g, gi) in dualAxisBarSvg(charts[ch.key]).groups" :key="'g'+gi">
-                    <rect v-for="b in g.bars" :key="b.seg" :x="b.x" :y="b.y" :width="b.w" :height="b.h" :fill="b.fill" rx="2"><title>{{ g.name }} - {{ b.seg }}：{{ b.count.toLocaleString() }} 件</title></rect>
-                    <text :x="g.gx + 35" :y="dualAxisBarSvg(charts[ch.key]).TM + dualAxisBarSvg(charts[ch.key]).plotH + 16" text-anchor="middle" font-size="10" fill="#374151" font-weight="500"><tspan v-for="(line, li) in wrapTextLines(g.name, 6, 2)" :key="li" :x="g.gx + 35" :dy="li === 0 ? 0 : 12">{{ line }}</tspan></text>
-                  </template>
-                  <path v-if="dualAxisBarSvg(charts[ch.key]).linePath" :d="dualAxisBarSvg(charts[ch.key]).linePath" fill="none" stroke="#E45C5C" stroke-width="2.5" stroke-linejoin="round" />
-                  <template v-for="(g, gi) in dualAxisBarSvg(charts[ch.key]).groups" :key="'dot'+gi">
-                    <circle :cx="g.lineX" :cy="g.lineY" r="4" fill="#E45C5C" stroke="#fff" stroke-width="1.5" />
-                    <text :x="g.lineX" :y="g.lineY - 8" text-anchor="middle" font-size="9" fill="#E45C5C" font-weight="700">{{ g.pct }}%</text>
-                  </template>
-                </svg>
-              </div>
+              <template v-for="svgData in [dualAxisBarSvg(charts[ch.key])]" :key="'dual2'">
+                <div style="width:100%;overflow-x:auto" v-if="svgData">
+                  <svg width="100%" :viewBox="`0 0 ${svgData.W} ${svgData.H}`" preserveAspectRatio="xMinYMin meet">
+                    <template v-for="(t, ti) in svgData.yTicks" :key="'yt'+ti">
+                      <line :x1="svgData.LM" :x2="svgData.W - svgData.RM" :y1="svgData.yS(t)" :y2="svgData.yS(t)" stroke="#e5e7eb" stroke-dasharray="3 3" />
+                      <text :x="svgData.LM - 8" :y="svgData.yS(t) + 4" text-anchor="end" font-size="10" fill="#6b7280">{{ t.toLocaleString() }}</text>
+                    </template>
+                    <template v-for="(g, gi) in svgData.groups" :key="'g'+gi">
+                      <rect v-for="b in g.bars" :key="b.seg" :x="b.x" :y="b.y" :width="b.w" :height="b.h" :fill="b.fill" rx="2"><title>{{ g.name }} - {{ b.seg }}：{{ b.count.toLocaleString() }} 件</title></rect>
+                      <text :x="g.gx + 35" :y="svgData.TM + svgData.plotH + 16" text-anchor="middle" font-size="10" fill="#374151" font-weight="500"><tspan v-for="(line, li) in wrapTextLines(g.name, 6, 2)" :key="li" :x="g.gx + 35" :dy="li === 0 ? 0 : 12">{{ line }}</tspan></text>
+                    </template>
+                    <path v-if="svgData.linePath" :d="svgData.linePath" fill="none" stroke="#E45C5C" stroke-width="2.5" stroke-linejoin="round" />
+                    <template v-for="(g, gi) in svgData.groups" :key="'dot'+gi">
+                      <circle :cx="g.lineX" :cy="g.lineY" r="4" fill="#E45C5C" stroke="#fff" stroke-width="1.5" />
+                      <text :x="g.lineX" :y="g.lineY - 8" text-anchor="middle" font-size="9" fill="#E45C5C" font-weight="700">{{ g.pct }}%</text>
+                    </template>
+                  </svg>
+                </div>
+              </template>
               <div class="legend-row">
                 <div v-for="(seg, si) in charts[ch.key].segments" :key="seg" class="legend-item"><span class="legend-dot" :style="{ background: PALETTE[si % PALETTE.length] }"></span>{{ seg }}</div>
                 <div class="legend-item"><span style="width:16px;height:3px;background:#E45C5C;display:inline-block;border-radius:2px"></span> 占比線</div>
