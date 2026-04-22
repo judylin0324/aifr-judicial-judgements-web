@@ -301,10 +301,14 @@ function heatmapColor(val, maxVal, baseColor = '79,134,247') {
   const ratio = val / (maxVal || 1)
   return `rgba(${baseColor},${0.08 + ratio * 0.82})`
 }
-function stackedBarSvg(chartData) {
+function stackedBarSvg(chartData, matchH = 0) {
   if (!chartData?.data?.length || !chartData?.segments?.length) return null
   const segments = chartData.segments, data = chartData.data
-  const LM = 130, RM = 20, TM = 10, rowH = 32, W = 600, H = TM + rowH * data.length + 30, barW = W - LM - RM
+  const LM = 130, RM = 20, TM = 10, W = 600, barW = W - LM - RM
+  // If matchH provided, scale rowH to fill that height; otherwise use default rowH=32
+  const rawH = matchH > 0 ? matchH : (TM + 32 * data.length + 30)
+  const rowH = Math.max(28, (rawH - TM - 30) / data.length)
+  const H = TM + rowH * data.length + 30
   const rows = data.map((d, idx) => {
     const y = TM + rowH * idx; let accX = LM
     const bars = segments.map((seg, si) => {
@@ -343,25 +347,29 @@ function violinSvgData(violinData) {
   if (!violinData?.length) return null
   const LM = 210, RM = 78, TM = 28, BM = 76, rowH = 104, W = 860
   const H = TM + BM + rowH * violinData.length; const plotW = W - LM - RM
+  // Use inlier values only for range and density (outliers shown as dots beyond whiskers)
   const allV = violinData.flatMap(d => d.values)
-  const allOutliers = violinData.flatMap(d => d.outliers || [])
-  const gMin = Math.min(...allV, ...allOutliers), gMax = Math.max(...allV, ...allOutliers), rawRange = gMax - gMin || 1
+  if (!allV.length) return null
+  const gMin = Math.min(...allV), gMax = Math.max(...allV), rawRange = gMax - gMin || 1
   const { ticks, start, end } = buildRangeTicks(gMin, gMax, 'imprisonment', 6)
   const domain = Math.max(1, end - start); const xS = v => LM + ((v - start) / domain) * plotW
   function densityBins(values) {
-    const bins = Array(16).fill(0); const step = rawRange / 16 || 1
-    values.forEach(v => { let idx = Math.floor((v - gMin) / step); if (idx < 0) idx = 0; if (idx >= 16) idx = 15; bins[idx]++ })
-    return bins.map((c, i) => ({ cx: gMin + step * (i + 0.5), c }))
+    const vMin = Math.min(...values), vMax = Math.max(...values), vRange = vMax - vMin || 1
+    const bins = Array(20).fill(0); const step = vRange / 20 || 1
+    values.forEach(v => { let idx = Math.floor((v - vMin) / step); if (idx < 0) idx = 0; if (idx >= 20) idx = 19; bins[idx]++ })
+    return bins.map((c, i) => ({ cx: vMin + step * (i + 0.5), c }))
   }
   const rows = violinData.map((d, idx) => {
-    const y = TM + rowH * idx + rowH / 2; const bins = densityBins(d.values); const maxC = Math.max(...bins.map(b => b.c), 1); const halfW = 24
+    const y = TM + rowH * idx + rowH / 2; const bins = densityBins(d.values); const maxC = Math.max(...bins.map(b => b.c), 1); const halfW = 28
     const pts = bins.map(b => ({ x: xS(b.cx), hw: (b.c / maxC) * halfW }))
     const up = pts.map(p => `${p.x},${y - p.hw}`).join(' L ')
     const dn = [...pts].reverse().map(p => `${p.x},${y + p.hw}`).join(' L ')
     const path = `M ${pts[0].x},${y} L ${up} L ${pts[pts.length - 1].x},${y} L ${dn} Z`
     const meanX = xS(d.mean), medianX = xS(d.median)
-    const outlierPts = (d.outliers || []).map(v => ({ cx: Math.max(LM, Math.min(W - RM, xS(v))), val: v }))
-    return { name: d.name, y, path, meanX, medianX, meanNR: meanX > W - RM - 92, medNR: medianX > W - RM - 92, n: d.n, meanLabel: formatMetricValue(d.mean, 'imprisonment', 1), medLabel: formatMetricValue(d.median, 'imprisonment', 1), labelLines: wrapTextLines(d.name, 8, 3), outlierPts, outlierCount: (d.outliers || []).length }
+    // Outlier dots: clamp to visible area, but show beyond whisker region
+    const outlierPts = (d.outliers || []).map(v => ({ cx: Math.max(LM + 2, Math.min(W - RM - 2, xS(v))), val: v }))
+    const outlierCount = d.outlierCount || (d.outliers || []).length
+    return { name: d.name, y, path, meanX, medianX, meanNR: meanX > W - RM - 92, medNR: medianX > W - RM - 92, n: d.n, meanLabel: formatMetricValue(d.mean, 'imprisonment', 1), medLabel: formatMetricValue(d.median, 'imprisonment', 1), labelLines: wrapTextLines(d.name, 8, 3), outlierPts, outlierCount }
   })
   const tickData = ticks.filter(t => { const x = xS(t); return x >= LM - 2 && x <= W - RM + 2 }).map(t => ({ x: xS(t), label: formatMetricValue(t, 'imprisonment', 1) }))
   return { W, H, LM, RM, TM, BM, rows, tickData, axisLabel: '刑期（月）' }
@@ -403,10 +411,10 @@ const chartLayout = computed(() => {
     { type: 'stackedBar', key: 'lawStack', title: '法條量刑結構堆疊圖', sub: '適用加重減輕類型分布' },
   ]
   if (ct === 'civil_litigation') return [
-    { type: 'dualAxisBar', key: 'lawyerEndingBar', title: '律師代理×終結情形', sub: '各律師代理情形案件數與占比' },
     { type: 'lawyerRateMap', key: 'lawyerRateMap', title: '各法院律師代理率地圖', sub: '各法院律師代理情形分布' },
+    { type: 'dualAxisBar', key: 'lawyerEndingBar', title: '律師代理×終結情形', sub: '各律師代理情形案件數與占比' },
     { type: 'heatmap', key: 'amountLawyerHeatmap', title: '標的金額×律師代理交叉', sub: '金額級距與律師代理情形' },
-    { type: 'heatmap', key: 'actionSubjectHeatmap', title: '案由動作×標的交叉', sub: '動作與標的交叉分析' },
+    { type: 'heatmapWide', key: 'actionSubjectHeatmap', title: '案由動作×標的交叉', sub: '動作與標的交叉分析' },
   ]
   if (ct === 'family_litigation') return [
     { type: 'dualAxisBar', key: 'lawyerCauseBar', title: '律師代理×案由', sub: '各律師代理情形案件數與占比' },
@@ -523,7 +531,7 @@ const familyActiveBarSub = computed(() => familyMapMode.value === 'inherit'
       </div>
 
       <!-- Charts -->
-      <div :class="['chart-grid', { 'chart-grid-2col': activeType === 'criminal_litigation' }]" v-if="dashData">
+      <div :class="['chart-grid', { 'chart-grid-2col': activeType === 'criminal_litigation' || activeType === 'civil_litigation' }]" v-if="dashData">
         <template v-for="ch in chartLayout" :key="ch.key">
 
           <!-- ══ Heatmap ══ -->
@@ -544,6 +552,24 @@ const familyActiveBarSub = computed(() => familyMapMode.value === 'inherit'
             </div>
           </div>
 
+          <!-- ══ Heatmap Wide (full-width) ══ -->
+          <div class="chart-card" v-if="ch.type === 'heatmapWide'" style="grid-column: 1 / -1">
+            <div class="chart-title">{{ ch.title }}</div>
+            <div class="chart-sub">{{ ch.sub }}</div>
+            <div v-if="!charts[ch.key]?.xLabels?.length" class="no-data">無資料</div>
+            <div v-else style="overflow-x:auto">
+              <table class="heatmap">
+                <thead><tr><th style="width:100px"></th><th v-for="x in charts[ch.key].xLabels" :key="x" class="hm-col-header">{{ x }}</th></tr></thead>
+                <tbody><tr v-for="(y, yi) in charts[ch.key].yLabels" :key="y">
+                  <td class="hm-label">{{ y }}</td>
+                  <td v-for="(x, xi) in charts[ch.key].xLabels" :key="x" :title="`${y} × ${x}：${charts[ch.key].matrix[yi][xi]} 件`"
+                    :style="{ background: heatmapColor(charts[ch.key].matrix[yi][xi], charts[ch.key].max), color: (charts[ch.key].matrix[yi][xi] / (charts[ch.key].max || 1)) > 0.5 ? '#fff' : '#111827' }"
+                    class="hm-cell">{{ charts[ch.key].matrix[yi][xi] }}</td>
+                </tr></tbody>
+              </table>
+            </div>
+          </div>
+
           <!-- ══ Court × Class Stacked Vertical Bar ══ -->
           <div class="chart-card" v-if="ch.type === 'courtClassBar'" style="grid-column: 1 / -1">
             <div class="chart-title">{{ charts[ch.key]?.mode === 'month' ? (charts[ch.key]?.courtName || '') + ' 終結年月 × 案件分類' : ch.title }}</div>
@@ -552,7 +578,7 @@ const familyActiveBarSub = computed(() => familyMapMode.value === 'inherit'
             <template v-else>
               <div style="display:flex;align-items:flex-start;gap:12px">
                 <div style="flex:1;overflow-x:auto">
-                  <svg :width="Math.max(500, charts[ch.key].data.length * 34 + 80)" :viewBox="'0 0 ' + Math.max(500, charts[ch.key].data.length * 34 + 80) + ' 240'" preserveAspectRatio="xMinYMin meet">
+                  <svg width="100%" :viewBox="'0 0 ' + Math.max(500, charts[ch.key].data.length * 34 + 80) + ' 240'" preserveAspectRatio="xMinYMin meet" style="min-width:0">
                     <template v-for="(tick, ti) in (() => { const maxT = Math.max(...charts[ch.key].data.map(d => d.total)); const step = Math.max(1, Math.ceil(maxT / 4 / Math.pow(10, Math.floor(Math.log10(maxT/4||1))))*Math.pow(10, Math.floor(Math.log10(maxT/4||1)))); const ticks = []; for (let t = 0; t <= maxT * 1.1; t += step) ticks.push(t); return ticks })()" :key="'gt'+ti">
                       <line x1="52" :x2="Math.max(500, charts[ch.key].data.length * 34 + 80) - 10" :y1="180 - (tick / (Math.max(...charts[ch.key].data.map(d => d.total)) * 1.1)) * 160" :y2="180 - (tick / (Math.max(...charts[ch.key].data.map(d => d.total)) * 1.1)) * 160" stroke="#e5e7eb" stroke-dasharray="3 3"/>
                       <text x="48" :y="184 - (tick / (Math.max(...charts[ch.key].data.map(d => d.total)) * 1.1)) * 160" text-anchor="end" font-size="10" fill="#6b7280">{{ tick.toLocaleString() }}</text>
@@ -576,17 +602,17 @@ const familyActiveBarSub = computed(() => familyMapMode.value === 'inherit'
             </template>
           </div>
 
-          <!-- ══ Stacked Bar ══ -->
+          <!-- ══ Stacked Bar (height matches violin when both present) ══ -->
           <div class="chart-card" v-if="ch.type === 'stackedBar'">
             <div class="chart-title">{{ ch.title }}</div>
             <div class="chart-sub">{{ ch.sub }}</div>
             <template v-if="charts[ch.key]?.data?.length">
-              <svg v-if="stackedBarSvg(charts[ch.key])" :viewBox="`0 0 ${stackedBarSvg(charts[ch.key]).W} ${stackedBarSvg(charts[ch.key]).H}`" width="100%" preserveAspectRatio="xMinYMin meet">
-                <template v-for="(row, ri) in stackedBarSvg(charts[ch.key]).rows" :key="ri">
-                  <text :x="stackedBarSvg(charts[ch.key]).LM - 6" :y="row.y + 20" text-anchor="end" font-size="11" fill="#111827" font-weight="500"><tspan v-for="(line, li) in row.labelLines" :key="li" :x="stackedBarSvg(charts[ch.key]).LM - 6" :dy="li === 0 ? 0 : 13">{{ line }}</tspan></text>
+              <svg v-if="stackedBarSvg(charts[ch.key], vSvg?.H || 0)" :viewBox="`0 0 ${stackedBarSvg(charts[ch.key], vSvg?.H || 0).W} ${stackedBarSvg(charts[ch.key], vSvg?.H || 0).H}`" width="100%" preserveAspectRatio="xMinYMin meet">
+                <template v-for="(row, ri) in stackedBarSvg(charts[ch.key], vSvg?.H || 0).rows" :key="ri">
+                  <text :x="stackedBarSvg(charts[ch.key], vSvg?.H || 0).LM - 6" :y="row.y + 20" text-anchor="end" font-size="11" fill="#111827" font-weight="500"><tspan v-for="(line, li) in row.labelLines" :key="li" :x="stackedBarSvg(charts[ch.key], vSvg?.H || 0).LM - 6" :dy="li === 0 ? 0 : 13">{{ line }}</tspan></text>
                   <rect v-for="b in row.bars" :key="b.seg" :x="b.x" :y="b.y" :width="Math.max(0, b.w)" :height="b.h" :fill="b.fill" rx="2"><title>{{ b.seg }}：{{ fmtPctTenths(b.tenths) }}（{{ b.count }} 件）</title></rect>
                 </template>
-                <text v-for="p in [0, 25, 50, 75, 100]" :key="p" :x="stackedBarSvg(charts[ch.key]).LM + (p / 100) * stackedBarSvg(charts[ch.key]).barW" :y="stackedBarSvg(charts[ch.key]).H - 6" text-anchor="middle" font-size="10" fill="#6b7280">{{ p }}%</text>
+                <text v-for="p in [0, 25, 50, 75, 100]" :key="p" :x="stackedBarSvg(charts[ch.key], vSvg?.H || 0).LM + (p / 100) * stackedBarSvg(charts[ch.key], vSvg?.H || 0).barW" :y="stackedBarSvg(charts[ch.key], vSvg?.H || 0).H - 6" text-anchor="middle" font-size="10" fill="#6b7280">{{ p }}%</text>
               </svg>
               <div class="legend-row"><div v-for="(seg, si) in charts[ch.key].segments" :key="seg" class="legend-item"><span class="legend-dot" :style="{ background: PALETTE[si % PALETTE.length] }"></span>{{ seg }}</div></div>
             </template>
@@ -707,7 +733,7 @@ const familyActiveBarSub = computed(() => familyMapMode.value === 'inherit'
             <div v-if="!familyActiveCourtBar?.data?.length" class="no-data">無資料</div>
             <template v-else>
               <div style="width:100%;overflow-x:auto">
-                <svg :width="Math.max(500, familyActiveCourtBar.data.length * 34 + 100)" :viewBox="'0 0 ' + Math.max(500, familyActiveCourtBar.data.length * 34 + 100) + ' 280'" preserveAspectRatio="xMinYMin meet">
+                <svg width="100%" :viewBox="'0 0 ' + Math.max(500, familyActiveCourtBar.data.length * 34 + 100) + ' 280'" preserveAspectRatio="xMinYMin meet" style="min-width:0">
                   <!-- Y-axis ticks -->
                   <template v-for="(tick, ti) in (() => { const maxT = Math.max(...familyActiveCourtBar.data.map(d => d.total), 1); const step = Math.max(1, Math.ceil(maxT / 4 / Math.pow(10, Math.floor(Math.log10(maxT/4||1))))*Math.pow(10, Math.floor(Math.log10(maxT/4||1)))); const ticks = []; for (let t = 0; t <= maxT * 1.15; t += step) ticks.push(t); return ticks })()" :key="'ft'+ti">
                     <line x1="52" :x2="Math.max(500, familyActiveCourtBar.data.length * 34 + 100) - 50" :y1="200 - (tick / (Math.max(...familyActiveCourtBar.data.map(d => d.total), 1) * 1.15)) * 170" :y2="200 - (tick / (Math.max(...familyActiveCourtBar.data.map(d => d.total), 1) * 1.15)) * 170" stroke="#e5e7eb" stroke-dasharray="3 3"/>
@@ -724,10 +750,10 @@ const familyActiveBarSub = computed(() => familyMapMode.value === 'inherit'
                     </rect>
                     <text :x="58 + di * 34 + 13" y="218" text-anchor="middle" font-size="10" fill="#374151" font-weight="600" writing-mode="vertical-rl" style="letter-spacing:1px">{{ d.abbr }}</text>
                   </template>
-                  <!-- Lawyer rate lines (divorce: 3 lines for initiators) -->
+                  <!-- Lawyer rate lines (divorce: 3 lines for initiators, dashed if <10 total cases) -->
                   <template v-if="familyMapMode === 'divorce'">
                     <template v-for="(initK) in ['男方','女方','雙方']" :key="'line'+initK">
-                      <polyline v-if="familyActiveCourtBar.lawyerLines[initK]?.some(v => v !== null)" :points="familyActiveCourtBar.data.map((d, i) => { const rate = familyActiveCourtBar.lawyerLines[initK]?.[i]; return rate != null ? (58 + i * 34 + 13) + ',' + (200 - (rate / 100) * 170) : '' }).filter(Boolean).join(' ')" fill="none" :stroke="INITIATOR_LINE_COLORS[initK]" stroke-width="2" stroke-linejoin="round"/>
+                      <polyline v-if="familyActiveCourtBar.lawyerLines[initK]?.some(v => v !== null)" :points="familyActiveCourtBar.data.map((d, i) => { const rate = familyActiveCourtBar.lawyerLines[initK]?.[i]; return rate != null ? (58 + i * 34 + 13) + ',' + (200 - (rate / 100) * 170) : '' }).filter(Boolean).join(' ')" fill="none" :stroke="INITIATOR_LINE_COLORS[initK]" stroke-width="2" stroke-linejoin="round" :stroke-dasharray="(familyActiveCourtBar.initiatorTotals?.[initK] || 0) < 10 ? '6 4' : 'none'"/>
                       <template v-for="(d, di) in familyActiveCourtBar.data" :key="'dot'+initK+di">
                         <circle v-if="familyActiveCourtBar.lawyerLines[initK]?.[di] != null" :cx="58 + di * 34 + 13" :cy="200 - (familyActiveCourtBar.lawyerLines[initK][di] / 100) * 170" r="3" :fill="INITIATOR_LINE_COLORS[initK]" stroke="#fff" stroke-width="1">
                           <title>{{ d.abbr }} {{ initK }}律師代理率：{{ familyActiveCourtBar.lawyerLines[initK][di] }}%</title>
@@ -749,7 +775,7 @@ const familyActiveBarSub = computed(() => familyMapMode.value === 'inherit'
               <div class="legend-row">
                 <div class="legend-item"><span class="legend-dot" :style="{ background: FAMILY_BAR_COLORS[0] }"></span>案件數（左軸）</div>
                 <template v-if="familyMapMode === 'divorce'">
-                  <div v-for="k in ['男方','女方','雙方']" :key="k" class="legend-item"><span style="width:16px;height:3px;display:inline-block;border-radius:2px" :style="{ background: INITIATOR_LINE_COLORS[k] }"></span>{{ k }}律師代理率（右軸%）</div>
+                  <div v-for="k in ['男方','女方','雙方']" :key="k" class="legend-item"><span style="width:16px;height:3px;display:inline-block;border-radius:2px" :style="{ background: INITIATOR_LINE_COLORS[k], borderTop: (familyActiveCourtBar.initiatorTotals?.[k] || 0) < 10 ? '2px dashed ' + INITIATOR_LINE_COLORS[k] : 'none', height: (familyActiveCourtBar.initiatorTotals?.[k] || 0) < 10 ? '0' : '3px' }"></span>{{ k }}代理率 (n={{ familyActiveCourtBar.initiatorTotals?.[k] || 0 }})</div>
                 </template>
                 <template v-else>
                   <div class="legend-item"><span style="width:16px;height:3px;background:#059669;display:inline-block;border-radius:2px"></span>律師代理率（右軸%）</div>
