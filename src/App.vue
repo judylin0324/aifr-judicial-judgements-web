@@ -968,12 +968,12 @@ const familyActiveBarSub = computed(() => familyMapMode.value === 'inherit' ? 'å
 .bar-track { flex: 1; height: 18px; background: #f1f5f9; border-radius: 4px; overflow: hidden; }
 .bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
 .bar-count { font-size: 12px; color: #6b7280; min-width: 50px; }
-.site-footer { margin-top: 32px; padding: 20px 24px; background: #1e293b; border-radius: 12px 12px 0 0; color: #e2e8f0; }
+.site-footer { margin-top: 32px; padding: 20px 24px; background: #f1f5f9; border-top: 1px solid #e2e8f0; color: #475569; }
 .footer-inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; max-width: 1000px; margin: 0 auto; }
-.footer-contact { font-size: 12px; line-height: 1.8; color: #cbd5e1; }
-.footer-contact a { color: #93c5fd; text-decoration: none; }
+.footer-contact { font-size: 12px; line-height: 1.8; color: #475569; }
+.footer-contact a { color: #2563eb; text-decoration: none; }
 .footer-contact a:hover { text-decoration: underline; }
-.footer-copy { font-size: 11px; color: #94a3b8; }
+.footer-copy { font-size: 11px; color: #64748b; }
 .footer-logos { display: flex; align-items: center; gap: 12px; }
 .footer-logos img { object-fit: contain; }
 @media (max-width: 768px) { .footer-inner { flex-direction: column; text-align: center; } }
