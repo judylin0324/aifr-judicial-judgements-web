@@ -475,6 +475,7 @@ def criminal_filter_options(df):
     return {
         "classes": count_col(df, "案件分類"),
         "courts": count_col(df, "c0_法院別"),
+        "caseChars": count_col(df, "c0_案號-字別"),
         "endings": count_col(df, "c0_全案終結情形"),
         "defs": count_col(df, "c1_辯護及代理"),
         "procs": count_col(df, "c1_裁判程序"),
@@ -496,6 +497,7 @@ def apply_criminal_filters(df, params, logic):
     result = df
     result = _apply_csv_filter(result, "案件分類", params.get("cls"))
     result = _apply_csv_filter(result, "c0_法院別", params.get("court"))
+    result = _apply_csv_filter(result, "c0_案號-字別", params.get("case_char"))
     result = _apply_csv_filter(result, "c0_全案終結情形", params.get("ending"))
     result = _apply_ym_filter(result, params.get("ym_min"), params.get("ym_max"))
     result = _apply_csv_filter(result, "c1_辯護及代理", params.get("defense"))
