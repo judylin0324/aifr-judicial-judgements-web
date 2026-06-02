@@ -94,11 +94,11 @@ function pieArc(cx, cy, r, startAngle, endAngle) {
 // ═══════════════════════════════════════════════════════════
 //  Section 4 — Filter Definitions per Case Type
 // ═══════════════════════════════════════════════════════════
-const LOCKED_OR_KEYS = new Set(['cls','court','ending','procedure','probation','cause','lawyer','initiator','divorce_reason','action','subject','lawsuit_type','amount_tier','national_comp','agency_type','comp_type','public_type','election_type'])
+const LOCKED_OR_KEYS = new Set(['cls','court','case_char','ending','procedure','probation','cause','lawyer','initiator','divorce_reason','action','subject','lawsuit_type','amount_tier','national_comp','agency_type','comp_type','public_type','election_type'])
 
 function getFilterDefs(caseType) {
   if (caseType === 'criminal_litigation') return [
-    { title: '案件資訊', color: 'blue', items: [ { key: 'cls', label: '案件分類', optsKey: 'classes' }, { key: 'court', label: '法院別', optsKey: 'courts' }, { key: 'ending', label: '全案終結情形', optsKey: 'endings' } ]},
+    { title: '案件資訊', color: 'blue', items: [ { key: 'cls', label: '案件分類', optsKey: 'classes' }, { key: 'court', label: '法院別', optsKey: 'courts' }, { key: 'case_char', label: '案號字別', optsKey: 'caseChars' }, { key: 'ending', label: '全案終結情形', optsKey: 'endings' } ]},
     { title: '被告資訊', color: 'orange', items: [ { key: 'defense', label: '辯護及代理', optsKey: 'defs' }, { key: 'security', label: '保安處分', optsKey: 'security', canToggle: true }, { key: 'procedure', label: '裁判程序', optsKey: 'procs' }, { key: 'compensation', label: '賠償對象', optsKey: 'compensation', canToggle: true }, { key: 'confiscation', label: '沒收', optsKey: 'confiscation', canToggle: true }, { key: 'probation', label: '宣告緩刑', optsKey: 'probs' }, { key: 'probcond', label: '緩刑條件', optsKey: 'probcond', canToggle: true }, { key: 'dv', label: '家暴相關', optsKey: 'dv', canToggle: true } ]},
     { title: '罪刑資訊', color: 'green', items: [ { key: 'article', label: '定罪法條', optsKey: 'articles', canToggle: true }, { key: 'crime_flags', label: '罪犯類型', optsKey: 'crimeFlags', canToggle: true }, { key: 'aggravation', label: '量刑加重事由', optsKey: 'aggr', canToggle: true }, { key: 'mitigation', label: '量刑減輕事由', optsKey: 'miti', canToggle: true }, { key: 'result', label: '罪名裁判結果', optsKey: 'results', canToggle: true } ]},
   ]
@@ -441,7 +441,7 @@ const familyActiveBarSub = computed(() => familyMapMode.value === 'inherit' ? '�
     <!-- ██ Main Area ██ -->
     <div :class="['main-area', 'bg-' + activeCat]">
       <div class="main-header">
-        <h1 style="font-size:22px;font-weight:700;margin:0;color:#0f172a">裁判書量化實證研究平台</h1>
+        <h1 style="font-size:22px;font-weight:700;margin:0;color:#0f172a">裁判書量化實證研究平台－民國108年</h1>
         <button @click="handleDL" :disabled="!dashData?.judgments?.items?.length" class="btn-dl">下載判決清單</button>
       </div>
       <div class="type-tabs">
@@ -828,6 +828,21 @@ const familyActiveBarSub = computed(() => familyMapMode.value === 'inherit' ? '�
           </div>
         </template>
       </div>
+
+      <!-- Footer -->
+      <footer class="site-footer">
+        <div class="footer-inner">
+          <span class="footer-contact">
+            <div>聯絡我們：aifr.general@gmail.com</div>
+            <div>意見回饋：<a href="https://shorturl.at/W9rDw" target="_blank">https://shorturl.at/W9rDw</a></div>
+          </span>
+          <span class="footer-copy">&copy;copyright Artificial Intelligence for Fundamental Research (AIFR) Group</span>
+          <div class="footer-logos">
+            <img src="/img/logo_nthu.e807351d.png" width="200" height="40" alt="NTHU" loading="lazy" />
+            <img src="/img/icon.65f461a6.png" width="80" height="45" alt="AIFR" loading="lazy" />
+          </div>
+        </div>
+      </footer>
     </div>
   </div>
 </template>
@@ -953,4 +968,13 @@ const familyActiveBarSub = computed(() => familyMapMode.value === 'inherit' ? '�
 .bar-track { flex: 1; height: 18px; background: #f1f5f9; border-radius: 4px; overflow: hidden; }
 .bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
 .bar-count { font-size: 12px; color: #6b7280; min-width: 50px; }
+.site-footer { margin-top: 32px; padding: 20px 24px; background: #1e293b; border-radius: 12px 12px 0 0; color: #e2e8f0; }
+.footer-inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; max-width: 1000px; margin: 0 auto; }
+.footer-contact { font-size: 12px; line-height: 1.8; color: #cbd5e1; }
+.footer-contact a { color: #93c5fd; text-decoration: none; }
+.footer-contact a:hover { text-decoration: underline; }
+.footer-copy { font-size: 11px; color: #94a3b8; }
+.footer-logos { display: flex; align-items: center; gap: 12px; }
+.footer-logos img { object-fit: contain; }
+@media (max-width: 768px) { .footer-inner { flex-direction: column; text-align: center; } }
 </style>
