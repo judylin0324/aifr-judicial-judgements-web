@@ -39,20 +39,35 @@ const AG_MIT_CATS = ['無加重無減輕','僅有加重法條','僅有減輕法�
 const AG_MIT_COLORS = {'無加重無減輕':'#4F86F7','僅有加重法條':'#F28C52','僅有減輕法條':'#35B679','有加重有減輕':'#D9A93A'}
 const JURL = 'https://judgment.judicial.gov.tw/FJUD/data.aspx?ty=JD&id='
 
-// Taiwan court positions on 400x560 viewBox
-const COURT_POS = {
-  '基隆地方法院': { x: 320, y: 72 }, '臺北地方法院': { x: 278, y: 88 }, '士林地方法院': { x: 290, y: 76 },
-  '新北地方法院': { x: 264, y: 98 }, '桃園地方法院': { x: 235, y: 118 }, '新竹地方法院': { x: 222, y: 145 },
-  '苗栗地方法院': { x: 204, y: 172 }, '臺中地方法院': { x: 184, y: 208 }, '南投地方法院': { x: 206, y: 242 },
-  '彰化地方法院': { x: 162, y: 228 }, '雲林地方法院': { x: 146, y: 262 }, '嘉義地方法院': { x: 152, y: 292 },
-  '臺南地方法院': { x: 142, y: 328 }, '高雄地方法院': { x: 160, y: 368 }, '橋頭地方法院': { x: 148, y: 352 },
-  '屏東地方法院': { x: 168, y: 405 }, '宜蘭地方法院': { x: 290, y: 126 }, '花蓮地方法院': { x: 266, y: 218 },
-  '臺東地方法院': { x: 246, y: 300 }, '澎湖地方法院': { x: 58, y: 295 }, '金門地方法院': { x: 34, y: 145 },
-  '連江地方法院': { x: 34, y: 85 }, '福建金門地方法院': { x: 34, y: 145 }, '福建連江地方法院': { x: 34, y: 85 },
+// Taiwan administrative regions SVG map (viewBox 0 0 500 720)
+const TW_MAP_DATA = [
+  { region:'連江', court:'連江地方法院', d:'M25,50 L48,42 L58,52 L52,68 L28,70 Z', cx:40, cy:56 },
+  { region:'金門', court:'金門地方法院', d:'M8,188 L42,178 L52,190 L46,208 L14,210 Z', cx:30, cy:195 },
+  { region:'澎湖', court:'澎湖地方法院', d:'M48,355 L68,342 L82,350 L86,372 L72,390 L50,382 Z', cx:66, cy:365 },
+  { region:'新北', court:'新北地方法院', d:'M336,113 L356,95 L384,84 L416,80 L440,80 L448,91 L460,109 L456,134 L444,152 L384,152 L350,145 L328,131 Z', cx:400, cy:114 },
+  { region:'基隆', court:'基隆地方法院', d:'M416,88 L440,80 L448,91 L440,102 L424,106 L410,98 Z', cx:430, cy:94 },
+  { region:'臺北', court:'臺北地方法院', d:'M368,102 L396,98 L408,109 L404,124 L388,127 L372,124 L364,113 Z', cx:386, cy:114 },
+  { region:'桃園', court:'桃園地方法院', d:'M296,124 L328,131 L350,145 L384,152 L376,165 L336,165 L300,152 L284,138 Z', cx:332, cy:146 },
+  { region:'新竹', court:'新竹地方法院', d:'M260,142 L284,138 L300,152 L336,165 L376,165 L376,192 L324,201 L276,192 L250,170 Z', cx:309, cy:169 },
+  { region:'宜蘭', court:'宜蘭地方法院', d:'M376,165 L384,152 L444,152 L456,134 L460,109 L448,91 L440,129 L428,178 L416,206 L376,210 L376,192 Z', cx:425, cy:156 },
+  { region:'苗栗', court:'苗栗地方法院', d:'M224,188 L250,170 L276,192 L324,201 L376,192 L376,210 L364,228 L316,237 L264,228 L216,214 Z', cx:299, cy:206 },
+  { region:'臺中', court:'臺中地方法院', d:'M184,242 L216,214 L264,228 L316,237 L364,228 L356,260 L310,282 L244,278 L190,264 Z', cx:272, cy:248 },
+  { region:'彰化', court:'彰化地方法院', d:'M152,282 L184,242 L190,264 L244,278 L236,296 L196,314 L156,307 Z', cx:194, cy:283 },
+  { region:'南投', court:'南投地方法院', d:'M244,278 L310,282 L356,260 L344,300 L304,336 L264,350 L220,340 L196,314 L236,296 Z', cx:275, cy:306 },
+  { region:'雲林', court:'雲林地方法院', d:'M124,350 L152,282 L156,307 L196,314 L220,340 L190,363 L150,376 L120,363 Z', cx:164, cy:337 },
+  { region:'嘉義', court:'嘉義地方法院', d:'M110,404 L120,363 L150,376 L190,363 L220,340 L264,350 L304,336 L290,381 L250,417 L204,430 L156,422 L116,412 Z', cx:198, cy:383 },
+  { region:'臺南', court:'臺南地方法院', d:'M100,462 L110,404 L116,412 L156,422 L204,430 L250,417 L240,453 L204,480 L164,494 L130,484 L104,471 Z', cx:162, cy:448 },
+  { region:'高雄', court:'高雄地方法院', d:'M110,530 L100,462 L104,471 L130,484 L164,494 L204,480 L240,453 L230,498 L196,538 L156,556 L130,552 Z', cx:160, cy:502 },
+  { region:'屏東', court:'屏東地方法院', d:'M130,552 L156,556 L196,538 L210,674 L184,669 L168,648 L155,620 L145,592 L136,570 Z', cx:164, cy:610 },
+  { region:'花蓮', court:'花蓮地方法院', d:'M290,381 L304,336 L344,300 L356,260 L364,228 L376,210 L416,206 L404,246 L390,309 L390,381 Z', cx:383, cy:286 },
+  { region:'臺東', court:'臺東地方法院', d:'M250,417 L290,381 L390,381 L376,462 L344,538 L296,597 L256,638 L230,660 L210,674 L196,538 L230,498 L240,453 Z', cx:310, cy:520 },
+]
+function matchCourtToRegion(courtName) {
+  for (const r of TW_MAP_DATA) { if (courtName === r.court || courtName.includes(r.region)) return r.region }
+  if (courtName.includes('橋頭')) return '高雄'
+  if (courtName.includes('士林')) return '臺北'
+  return null
 }
-
-// Taiwan outline SVG path (detailed)
-const TW_OUTLINE = "M295,52 C305,48 318,52 328,62 C335,70 332,82 328,92 C324,98 318,108 314,120 C310,132 306,148 302,165 C298,182 294,200 290,218 C286,236 280,254 272,272 C264,290 254,306 242,324 C230,342 218,358 206,374 C194,390 184,406 178,420 C172,434 170,446 168,456 C166,466 168,474 164,482 C160,488 152,486 146,476 C140,466 134,450 128,432 C122,414 118,396 116,376 C114,356 116,338 118,318 C120,298 126,278 132,258 C138,238 146,220 156,202 C166,184 178,168 192,154 C206,140 216,132 226,122 C236,112 246,100 256,88 C266,76 278,62 295,52 Z"
 
 function heatColor(ratio) {
   const r = Math.max(0, Math.min(1, ratio))
@@ -103,11 +118,11 @@ function getFilterDefs(caseType) {
     { title: '罪刑資訊', color: 'green', items: [ { key: 'article', label: '定罪法條', optsKey: 'articles', canToggle: true }, { key: 'crime_flags', label: '罪犯類型', optsKey: 'crimeFlags', canToggle: true }, { key: 'aggravation', label: '量刑加重事由', optsKey: 'aggr', canToggle: true }, { key: 'mitigation', label: '量刑減輕事由', optsKey: 'miti', canToggle: true }, { key: 'result', label: '罪名裁判結果', optsKey: 'results', canToggle: true } ]},
   ]
   if (caseType === 'civil_litigation') return [
-    { title: '案件資訊', color: 'blue', items: [ { key: 'court', label: '法院別', optsKey: 'courts' }, { key: 'ending', label: '終結情形', optsKey: 'endings' }, { key: 'action', label: '案由-行為', optsKey: 'actions' }, { key: 'subject', label: '案由-標的', optsKey: 'subjects' }, { key: 'lawsuit_type', label: '訴訟標的類別', optsKey: 'lawsuitTypes' }, { key: 'amount_tier', label: '金額級距', optsKey: 'amountTiers' } ]},
+    { title: '案件資訊', color: 'blue', items: [ { key: 'court', label: '法院別', optsKey: 'courts' }, { key: 'case_char', label: '案號字別', optsKey: 'caseChars' }, { key: 'ending', label: '終結情形', optsKey: 'endings' }, { key: 'action', label: '案由-行為', optsKey: 'actions' }, { key: 'subject', label: '案由-標的', optsKey: 'subjects' }, { key: 'lawsuit_type', label: '訴訟標的類別', optsKey: 'lawsuitTypes' }, { key: 'amount_tier', label: '金額級距', optsKey: 'amountTiers' } ]},
     { title: '當事人資訊', color: 'orange', items: [ { key: 'lawyer', label: '律師代理情形', optsKey: 'lawyers' }, { key: 'national_comp', label: '是否國賠事件', optsKey: 'nationalComp' }, { key: 'agency_type', label: '被請求機關類別', optsKey: 'agencyTypes' }, { key: 'comp_type', label: '賠償類別', optsKey: 'compTypes' }, { key: 'public_type', label: '公職類別', optsKey: 'publicTypes' }, { key: 'election_type', label: '選舉類別', optsKey: 'electionTypes' } ]},
   ]
   if (caseType === 'family_litigation') return [
-    { title: '案件資訊', color: 'blue', items: [ { key: 'court', label: '法院別', optsKey: 'courts' }, { key: 'ending', label: '終結情形', optsKey: 'endings' }, { key: 'cause', label: '案由', optsKey: 'causes' } ]},
+    { title: '案件資訊', color: 'blue', items: [ { key: 'court', label: '法院別', optsKey: 'courts' }, { key: 'case_char', label: '案號字別', optsKey: 'caseChars' }, { key: 'ending', label: '終結情形', optsKey: 'endings' }, { key: 'cause', label: '案由', optsKey: 'causes' } ]},
     { title: '當事人資訊', color: 'orange', items: [ { key: 'lawyer', label: '律師代理情形', optsKey: 'lawyers' }, { key: 'initiator', label: '主動離婚者', optsKey: 'initiators' }, { key: 'divorce_reason', label: '離婚原因', optsKey: 'divorceReasons' } ]},
   ]
   return []
@@ -619,36 +634,37 @@ const familyActiveBarSub = computed(() => familyMapMode.value === 'inherit' ? '�
             <div v-else class="no-data">無資料</div>
           </div>
 
-          <!-- ══ Lawyer Rate Map (civil) ══ -->
+          <!-- ══ Lawyer Rate Choropleth Map (civil) ══ -->
           <div class="chart-card" v-if="ch.type === 'lawyerRateMap'">
             <div class="chart-title">{{ ch.title }}</div>
             <div class="chart-sub">{{ ch.sub }}</div>
             <div v-if="!charts[ch.key]?.length" class="no-data">無資料</div>
             <div v-else class="map-container">
-              <svg viewBox="0 0 400 520" width="100%" style="max-width:480px;margin:0 auto;display:block">
+              <svg viewBox="0 0 500 720" width="100%" style="max-width:520px;margin:0 auto;display:block" preserveAspectRatio="xMidYMid meet">
                 <defs>
-                  <filter id="shadow"><feDropShadow dx="1" dy="1" stdDeviation="2" flood-opacity="0.15"/></filter>
                   <linearGradient id="seaGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e8f4fd"/><stop offset="100%" stop-color="#d0e8f8"/></linearGradient>
                 </defs>
-                <rect width="400" height="520" fill="url(#seaGrad)" rx="12"/>
-                <path :d="TW_OUTLINE" fill="#f0f4e8" stroke="#8faa7a" stroke-width="1.8" filter="url(#shadow)"/>
-                <template v-for="court in charts[ch.key]" :key="court.court">
-                  <g v-if="COURT_POS[court.court]" @mouseenter="showMapTooltip($event, court)" @mouseleave="hideMapTooltip" style="cursor:pointer">
-                    <circle :cx="COURT_POS[court.court].x" :cy="COURT_POS[court.court].y" :r="Math.max(8, Math.min(26, court.lawyerRate / 4))"
-                      :fill="heatColor(court.lawyerRate / Math.max(...charts[ch.key].map(c => c.lawyerRate || 1)))" :stroke="heatColor(Math.min(1, court.lawyerRate / Math.max(...charts[ch.key].map(c => c.lawyerRate || 1)) + 0.15))" stroke-width="2" opacity="0.85"/>
-                    <text :x="COURT_POS[court.court].x" :y="COURT_POS[court.court].y + Math.max(8, Math.min(26, court.lawyerRate / 4)) + 12" text-anchor="middle" font-size="9" fill="#374151" font-weight="600">{{ court.court.replace('地方法院','') }}</text>
-                  </g>
+                <rect width="500" height="720" fill="url(#seaGrad)" rx="12"/>
+                <template v-for="r in TW_MAP_DATA" :key="r.region">
+                  <path :d="r.d"
+                    :fill="(() => { const cd = charts[ch.key].find(c => matchCourtToRegion(c.court) === r.region); if (!cd) return '#e5e7eb'; const maxR = Math.max(...charts[ch.key].map(c => c.lawyerRate || 1)); return heatColor(cd.lawyerRate / maxR) })()"
+                    stroke="#7a8a6a" stroke-width="1.5" stroke-linejoin="round" style="cursor:pointer"
+                    @mouseenter="showMapTooltip($event, charts[ch.key].find(c => matchCourtToRegion(c.court) === r.region) || { court: r.court, count: 0, lawyerRate: 0 })"
+                    @mouseleave="hideMapTooltip">
+                    <title>{{ r.region }}（{{ r.court }}）</title>
+                  </path>
+                  <text :x="r.cx" :y="r.cy + 4" text-anchor="middle" font-size="11" fill="#1e293b" font-weight="700" pointer-events="none" style="text-shadow:0 0 3px rgba(255,255,255,0.8)">{{ r.region }}</text>
                 </template>
               </svg>
-              <div class="map-legend">
-                <span style="font-size:9px;color:#6b7280">低代理率</span>
+              <div class="map-legend" style="margin-top:10px">
+                <span style="font-size:11px;color:#6b7280">低代理率</span>
                 <div class="map-legend-bar"></div>
-                <span style="font-size:9px;color:#6b7280">高代理率</span>
+                <span style="font-size:11px;color:#6b7280">高代理率</span>
               </div>
               <div v-if="mapTooltip.show && mapTooltip.data" class="map-tooltip" :style="{ left: mapTooltip.x + 'px', top: mapTooltip.y + 'px' }">
                 <div class="tooltip-title">{{ mapTooltip.data.court }}</div>
-                <div class="tooltip-row">案件數：{{ mapTooltip.data.count.toLocaleString() }}</div>
-                <div class="tooltip-row" style="font-weight:700">律師代理率：{{ mapTooltip.data.lawyerRate }}%</div>
+                <div class="tooltip-row">案件數：{{ mapTooltip.data.count?.toLocaleString() || 0 }}</div>
+                <div class="tooltip-row" style="font-weight:700">律師代理率：{{ mapTooltip.data.lawyerRate || 0 }}%</div>
               </div>
             </div>
           </div>
