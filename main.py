@@ -903,7 +903,7 @@ async def get_options(case_type: str):
 async def get_data(
     case_type: str,
     court: Optional[str] = None, ym_min: Optional[str] = None, ym_max: Optional[str] = None,
-    ending: Optional[str] = None, logic: Optional[str] = None,
+    ending: Optional[str] = None, case_char: Optional[str] = None, logic: Optional[str] = None,
     page: int = Query(0, ge=0), page_size: int = Query(10, ge=1, le=100),
     cls: Optional[str] = None, defense: Optional[str] = None, procedure: Optional[str] = None,
     probation: Optional[str] = None, article: Optional[str] = None, result: Optional[str] = None,
@@ -926,6 +926,7 @@ async def get_data(
 
     params = {k: v for k, v in {
         "court": court, "ym_min": ym_min, "ym_max": ym_max, "ending": ending,
+        "case_char": case_char,
         "cls": cls, "defense": defense, "procedure": procedure, "probation": probation,
         "article": article, "result": result,
         "security": security, "compensation": compensation, "confiscation": confiscation,
