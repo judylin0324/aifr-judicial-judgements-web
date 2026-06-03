@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
+import TaiwanCourtBubbleMap from './TaiwanCourtBubbleMap.vue'
 
 // ═══════════════════════════════════════════════════════════
 //  Section 1 — API Configuration
@@ -636,37 +637,14 @@ const familyActiveBarSub = computed(() => familyMapMode.value === 'inherit' ? '�
 
           <!-- ══ Lawyer Rate Choropleth Map (civil) ══ -->
           <div class="chart-card" v-if="ch.type === 'lawyerRateMap'">
-            <div class="chart-title">{{ ch.title }}</div>
-            <div class="chart-sub">{{ ch.sub }}</div>
             <div v-if="!charts[ch.key]?.length" class="no-data">無資料</div>
-            <div v-else class="map-container">
-              <svg viewBox="0 0 500 720" width="100%" style="max-width:520px;margin:0 auto;display:block" preserveAspectRatio="xMidYMid meet">
-                <defs>
-                  <linearGradient id="seaGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e8f4fd"/><stop offset="100%" stop-color="#d0e8f8"/></linearGradient>
-                </defs>
-                <rect width="500" height="720" fill="url(#seaGrad)" rx="12"/>
-                <template v-for="r in TW_MAP_DATA" :key="r.region">
-                  <path :d="r.d"
-                    :fill="(() => { const cd = charts[ch.key].find(c => matchCourtToRegion(c.court) === r.region); if (!cd) return '#e5e7eb'; const maxR = Math.max(...charts[ch.key].map(c => c.lawyerRate || 1)); return heatColor(cd.lawyerRate / maxR) })()"
-                    stroke="#7a8a6a" stroke-width="1.5" stroke-linejoin="round" style="cursor:pointer"
-                    @mouseenter="showMapTooltip($event, charts[ch.key].find(c => matchCourtToRegion(c.court) === r.region) || { court: r.court, count: 0, lawyerRate: 0 })"
-                    @mouseleave="hideMapTooltip">
-                    <title>{{ r.region }}（{{ r.court }}）</title>
-                  </path>
-                  <text :x="r.cx" :y="r.cy + 4" text-anchor="middle" font-size="11" fill="#1e293b" font-weight="700" pointer-events="none" style="text-shadow:0 0 3px rgba(255,255,255,0.8)">{{ r.region }}</text>
-                </template>
-              </svg>
-              <div class="map-legend" style="margin-top:10px">
-                <span style="font-size:11px;color:#6b7280">低代理率</span>
-                <div class="map-legend-bar"></div>
-                <span style="font-size:11px;color:#6b7280">高代理率</span>
-              </div>
-              <div v-if="mapTooltip.show && mapTooltip.data" class="map-tooltip" :style="{ left: mapTooltip.x + 'px', top: mapTooltip.y + 'px' }">
-                <div class="tooltip-title">{{ mapTooltip.data.court }}</div>
-                <div class="tooltip-row">案件數：{{ mapTooltip.data.count?.toLocaleString() || 0 }}</div>
-                <div class="tooltip-row" style="font-weight:700">律師代理率：{{ mapTooltip.data.lawyerRate || 0 }}%</div>
-              </div>
-            </div>
+            <TaiwanCourtBubbleMap
+              v-else
+              :data="charts[ch.key]"
+              metric="lawyerRate"
+              :title="ch.title"
+              :subtitle="ch.sub"
+            />
           </div>
 
           <!-- ══ Cause Distribution + Pie (family) ══ -->
