@@ -291,17 +291,21 @@ function dualAxisBarSvg(chartData) {
   return { W, H, LM, RM, TM, BM, plotH, groups, yTicks, yMax, yS, pctS, segments, linePath }
 }
 
+// 用迴圈求極值，避免 Math.min/max(...大陣列) 在資料量大時拋出 RangeError(堆疊溢位)
+function arrMin(a) { let m = Infinity; for (let i = 0; i < a.length; i++) if (a[i] < m) m = a[i]; return m }
+function arrMax(a) { let m = -Infinity; for (let i = 0; i < a.length; i++) if (a[i] > m) m = a[i]; return m }
+
 function violinSvgData(violinData) {
   if (!violinData?.length) return null
   const LM = 210, RM = 78, TM = 28, BM = 76, rowH = 104, W = 860
   const H = TM + BM + rowH * violinData.length; const plotW = W - LM - RM
   const allV = violinData.flatMap(d => d.values)
   if (!allV.length) return null
-  const gMin = Math.min(...allV), gMax = Math.max(...allV), rawRange = gMax - gMin || 1
+  const gMin = arrMin(allV), gMax = arrMax(allV), rawRange = gMax - gMin || 1
   const { ticks, start, end } = buildRangeTicks(gMin, gMax, 'imprisonment', 6)
   const domain = Math.max(1, end - start); const xS = v => LM + ((v - start) / domain) * plotW
   function densityBins(values) {
-    const vMin = Math.min(...values), vMax = Math.max(...values), vRange = vMax - vMin || 1
+    const vMin = arrMin(values), vMax = arrMax(values), vRange = vMax - vMin || 1
     const bins = Array(20).fill(0); const step = vRange / 20 || 1
     values.forEach(v => { let idx = Math.floor((v - vMin) / step); if (idx < 0) idx = 0; if (idx >= 20) idx = 19; bins[idx]++ })
     return bins.map((c, i) => ({ cx: vMin + step * (i + 0.5), c }))
