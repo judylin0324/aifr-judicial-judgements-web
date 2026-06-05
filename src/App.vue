@@ -213,7 +213,7 @@ async function loadTypes() {
   try { availableTypes.value = await api('/api/types'); const first = availableTypes.value.find(t => t.available); if (first) { activeType.value = first.key; activeCat.value = CASE_TYPES[first.key]?.category || 'criminal' } } catch (e) { error.value = '無法載入案件類型：' + e.message }
 }
 async function loadOptions() { try { filterOptions.value = await api(`/api/${activeType.value}/options`) } catch (e) { error.value = '無法載入篩選選項：' + e.message } }
-async function loadData() {
+async function loadData(opts = {}) {
   loading.value = true; error.value = null
   try {
     const params = {}; const af = appliedFilters.value || {}
@@ -225,6 +225,7 @@ async function loadData() {
     for (const [k, v] of Object.entries(lg)) { if (v === 'and') { logicParam[k] = 'and'; hasLogic = true } }
     if (hasLogic) params.logic = JSON.stringify(logicParam)
     params.page = pg.value; params.page_size = PG
+    if (opts.auto) params.auto = 1   // 標記「預設自動載入」，後端統計各案類時會排除，避免灌水
     dashData.value = await api(`/api/${activeType.value}/data`, params)
   } catch (e) { error.value = '無法載入資料：' + e.message } finally { loading.value = false }
 }
@@ -405,7 +406,7 @@ const chartLayout = computed(() => {
 function showMapTooltip(evt, courtData) { const rect = evt.currentTarget.closest('.map-container').getBoundingClientRect(); mapTooltip.value = { show: true, x: evt.clientX - rect.left + 15, y: evt.clientY - rect.top - 10, data: courtData } }
 function hideMapTooltip() { mapTooltip.value = { show: false, x: 0, y: 0, data: null } }
 
-onMounted(async () => { await loadTypes(); await loadOptions(); await loadData() })
+onMounted(async () => { await loadTypes(); await loadOptions(); await loadData({ auto: true }) })
 watch(activeType, async () => { allClear(); dashData.value = null; filterOptions.value = {}; await loadOptions(); await loadData() })
 watch(pg, () => { loadData() })
 function switchType(type) { if (type === activeType.value) return; activeType.value = type; activeCat.value = CASE_TYPES[type]?.category || 'criminal'; sideOpen.value = true }
