@@ -41,6 +41,8 @@ const INITIATOR_LINE_COLORS = {
 // 主動離婚者專用備援色盤(刻意與案由色盤 PALETTE 不同，避免誤認為同類項目)
 const INITIATOR_FALLBACK = ['#14B8A6', '#F59E0B', '#6366F1', '#10B981', '#0EA5E9']
 function initColor(name, idx = 0) { return INITIATOR_LINE_COLORS[name] || INITIATOR_FALLBACK[idx % INITIATOR_FALLBACK.length] }
+// 折線單點相容兩種後端格式：純數字(舊) 或 {rate,n,withL}(新)
+function linePt(v) { if (v == null) return null; return typeof v === 'number' ? { rate: v, n: null, withL: null } : v }
 const PIE_COLORS = ['#4F86F7','#F28C52','#35B679','#D9A93A','#E45C5C','#8B5CF6']
 const AG_MIT_CATS = ['無加重無減輕','僅有加重法條','僅有減輕法條','有加重有減輕']
 const AG_MIT_COLORS = {'無加重無減輕':'#4F86F7','僅有加重法條':'#F28C52','僅有減輕法條':'#35B679','有加重有減輕':'#D9A93A'}
@@ -730,11 +732,13 @@ const familyActiveBarSub = computed(() => familyMapMode.value === 'inherit' ? '�
                   </template>
                   <template v-if="familyMapMode === 'divorce'">
                     <template v-for="(initK, ki) in Object.keys(familyActiveCourtBar.lawyerLines || {})" :key="'line'+initK">
-                      <polyline v-if="familyActiveCourtBar.lawyerLines[initK]?.some(v => v && v.rate != null)" :points="familyActiveCourtBar.data.map((d, i) => { const pt = familyActiveCourtBar.lawyerLines[initK]?.[i]; return pt && pt.rate != null ? (58 + i * 34 + 13) + ',' + (200 - (pt.rate / 100) * 170) : '' }).filter(Boolean).join(' ')" fill="none" :stroke="initColor(initK, ki)" stroke-width="2" stroke-linejoin="round" :stroke-dasharray="(familyActiveCourtBar.initiatorTotals?.[initK] || 0) < 10 ? '6 4' : 'none'"/>
+                      <polyline v-if="familyActiveCourtBar.lawyerLines[initK]?.some(v => v != null)" :points="familyActiveCourtBar.data.map((d, i) => { const pt = linePt(familyActiveCourtBar.lawyerLines[initK]?.[i]); return pt && pt.rate != null ? (58 + i * 34 + 13) + ',' + (200 - (pt.rate / 100) * 170) : '' }).filter(Boolean).join(' ')" fill="none" :stroke="initColor(initK, ki)" stroke-width="2" stroke-linejoin="round" :stroke-dasharray="(familyActiveCourtBar.initiatorTotals?.[initK] || 0) < 10 ? '6 4' : 'none'"/>
                       <template v-for="(d, di) in familyActiveCourtBar.data" :key="'dot'+initK+di">
-                        <circle v-if="familyActiveCourtBar.lawyerLines[initK]?.[di]?.rate != null" :cx="58 + di * 34 + 13" :cy="200 - (familyActiveCourtBar.lawyerLines[initK][di].rate / 100) * 170" r="3" :fill="initColor(initK, ki)" stroke="#fff" stroke-width="1">
-                          <title>{{ d.abbr }}　{{ initK }}主動方代理率：{{ familyActiveCourtBar.lawyerLines[initK][di].rate }}%（主動提起 {{ familyActiveCourtBar.lawyerLines[initK][di].n }} 件，其中主動方有請律師 {{ familyActiveCourtBar.lawyerLines[initK][di].withL }} 件）</title>
-                        </circle>
+                        <template v-for="pt in [linePt(familyActiveCourtBar.lawyerLines[initK]?.[di])]" :key="'pt'+initK+di">
+                          <circle v-if="pt && pt.rate != null" :cx="58 + di * 34 + 13" :cy="200 - (pt.rate / 100) * 170" r="3" :fill="initColor(initK, ki)" stroke="#fff" stroke-width="1">
+                            <title>{{ d.abbr }}　{{ initK }}主動方代理率：{{ pt.rate }}%{{ pt.n != null ? '（主動提起 ' + pt.n + ' 件，其中主動方有請律師 ' + pt.withL + ' 件）' : '' }}</title>
+                          </circle>
+                        </template>
                       </template>
                     </template>
                   </template>
