@@ -730,10 +730,10 @@ const familyActiveBarSub = computed(() => familyMapMode.value === 'inherit' ? '�
                   </template>
                   <template v-if="familyMapMode === 'divorce'">
                     <template v-for="(initK, ki) in Object.keys(familyActiveCourtBar.lawyerLines || {})" :key="'line'+initK">
-                      <polyline v-if="familyActiveCourtBar.lawyerLines[initK]?.some(v => v !== null)" :points="familyActiveCourtBar.data.map((d, i) => { const rate = familyActiveCourtBar.lawyerLines[initK]?.[i]; return rate != null ? (58 + i * 34 + 13) + ',' + (200 - (rate / 100) * 170) : '' }).filter(Boolean).join(' ')" fill="none" :stroke="initColor(initK, ki)" stroke-width="2" stroke-linejoin="round" :stroke-dasharray="(familyActiveCourtBar.initiatorTotals?.[initK] || 0) < 10 ? '6 4' : 'none'"/>
+                      <polyline v-if="familyActiveCourtBar.lawyerLines[initK]?.some(v => v && v.rate != null)" :points="familyActiveCourtBar.data.map((d, i) => { const pt = familyActiveCourtBar.lawyerLines[initK]?.[i]; return pt && pt.rate != null ? (58 + i * 34 + 13) + ',' + (200 - (pt.rate / 100) * 170) : '' }).filter(Boolean).join(' ')" fill="none" :stroke="initColor(initK, ki)" stroke-width="2" stroke-linejoin="round" :stroke-dasharray="(familyActiveCourtBar.initiatorTotals?.[initK] || 0) < 10 ? '6 4' : 'none'"/>
                       <template v-for="(d, di) in familyActiveCourtBar.data" :key="'dot'+initK+di">
-                        <circle v-if="familyActiveCourtBar.lawyerLines[initK]?.[di] != null" :cx="58 + di * 34 + 13" :cy="200 - (familyActiveCourtBar.lawyerLines[initK][di] / 100) * 170" r="3" :fill="initColor(initK, ki)" stroke="#fff" stroke-width="1">
-                          <title>{{ d.abbr }} {{ initK }}律師代理率：{{ familyActiveCourtBar.lawyerLines[initK][di] }}%</title>
+                        <circle v-if="familyActiveCourtBar.lawyerLines[initK]?.[di]?.rate != null" :cx="58 + di * 34 + 13" :cy="200 - (familyActiveCourtBar.lawyerLines[initK][di].rate / 100) * 170" r="3" :fill="initColor(initK, ki)" stroke="#fff" stroke-width="1">
+                          <title>{{ d.abbr }}　{{ initK }}主動方代理率：{{ familyActiveCourtBar.lawyerLines[initK][di].rate }}%（主動提起 {{ familyActiveCourtBar.lawyerLines[initK][di].n }} 件，其中主動方有請律師 {{ familyActiveCourtBar.lawyerLines[initK][di].withL }} 件）</title>
                         </circle>
                       </template>
                     </template>
