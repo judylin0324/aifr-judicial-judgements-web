@@ -34,7 +34,13 @@ const CASE_TYPES = {
 const PALETTE = ['#4F86F7','#F28C52','#35B679','#D9A93A','#E45C5C','#8B5CF6','#06B6D4','#EC4899','#84CC16']
 const PASTEL = ['#93C5FD','#FCA5A5','#86EFAC','#FDE68A','#C4B5FD','#67E8F9','#FBCFE8','#BEF264'] // pastel for court bar
 const FAMILY_BAR_COLORS = ['#F59E0B','#FB923C','#FBBF24','#F97316','#FCD34D'] // warm tones for family
-const INITIATOR_LINE_COLORS = { '男方': '#3B82F6', '女方': '#EC4899', '雙方': '#8B5CF6' }
+const INITIATOR_LINE_COLORS = {
+  '不同性別-男方': '#3B82F6', '不同性別-女方': '#EC4899', '雙方': '#8B5CF6', '相同性別-一方': '#14B8A6',
+  '男方': '#3B82F6', '女方': '#EC4899' // 舊資料相容
+}
+// 主動離婚者專用備援色盤(刻意與案由色盤 PALETTE 不同，避免誤認為同類項目)
+const INITIATOR_FALLBACK = ['#14B8A6', '#F59E0B', '#6366F1', '#10B981', '#0EA5E9']
+function initColor(name, idx = 0) { return INITIATOR_LINE_COLORS[name] || INITIATOR_FALLBACK[idx % INITIATOR_FALLBACK.length] }
 const PIE_COLORS = ['#4F86F7','#F28C52','#35B679','#D9A93A','#E45C5C','#8B5CF6']
 const AG_MIT_CATS = ['無加重無減輕','僅有加重法條','僅有減輕法條','有加重有減輕']
 const AG_MIT_COLORS = {'無加重無減輕':'#4F86F7','僅有加重法條':'#F28C52','僅有減輕法條':'#35B679','有加重有減輕':'#D9A93A'}
@@ -410,7 +416,7 @@ const familyActiveBarSub = computed(() => familyMapMode.value === 'inherit' ? '�
 
 <template>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet" />
-  <div class="dashboard">
+  <div class="dashboard" :class="{ 'is-loading': loading }">
     <div @click="sideOpen = !sideOpen" class="sidebar-tab" :class="{ open: sideOpen }">{{ sideOpen ? '◀ 收 起' : '篩 選 ▶' }}</div>
     <!-- ██ Sidebar ██ -->
     <div class="sidebar" :style="{ width: sideOpen ? '320px' : '0', minWidth: sideOpen ? '320px' : '0' }">
@@ -480,7 +486,7 @@ const familyActiveBarSub = computed(() => familyMapMode.value === 'inherit' ? '�
         </template>
       </div>
       <div class="filter-summary">{{ filterSummary }}</div>
-      <div v-if="loading" class="loading-overlay">載入中…</div>
+      <div v-if="loading" class="loading-overlay"><span class="spinner"></span>載入中…</div>
       <div v-if="error" class="error-bar">{{ error }}</div>
 
       <!-- Stats -->
@@ -678,7 +684,7 @@ const familyActiveBarSub = computed(() => familyMapMode.value === 'inherit' ? '�
                       <path :d="pieArc(70, 70, 60,
                         charts.initiatorDist.slice(0, idx).reduce((a, b) => a + b.count, 0) / charts.initiatorDist.reduce((a, b) => a + b.count, 0) * Math.PI * 2,
                         charts.initiatorDist.slice(0, idx + 1).reduce((a, b) => a + b.count, 0) / charts.initiatorDist.reduce((a, b) => a + b.count, 0) * Math.PI * 2)"
-                        :fill="INITIATOR_LINE_COLORS[item.name] || PIE_COLORS[idx % PIE_COLORS.length]" stroke="#fff" stroke-width="2" opacity="0.85">
+                        :fill="initColor(item.name, idx)" stroke="#fff" stroke-width="2" opacity="0.85">
                         <title>{{ item.name }}：{{ item.count }} 件</title>
                       </path>
                     </template>
@@ -687,7 +693,7 @@ const familyActiveBarSub = computed(() => familyMapMode.value === 'inherit' ? '�
                   </svg>
                   <div>
                     <div v-for="(item, idx) in charts.initiatorDist" :key="item.name" style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-                      <span class="legend-dot" :style="{ background: INITIATOR_LINE_COLORS[item.name] || PIE_COLORS[idx % PIE_COLORS.length] }"></span>
+                      <span class="legend-dot" :style="{ background: initColor(item.name, idx) }"></span>
                       <span style="font-size:12px;color:#374151;font-weight:600">{{ item.name }}</span>
                       <span style="font-size:11px;color:#6b7280">{{ item.count }} 件（{{ (item.count / charts.initiatorDist.reduce((a, b) => a + b.count, 0) * 100).toFixed(1) }}%）</span>
                     </div>
@@ -723,10 +729,10 @@ const familyActiveBarSub = computed(() => familyMapMode.value === 'inherit' ? '�
                     <text :x="58 + di * 34 + 13" y="218" text-anchor="middle" font-size="10" fill="#374151" font-weight="600" writing-mode="vertical-rl" style="letter-spacing:1px">{{ d.abbr }}</text>
                   </template>
                   <template v-if="familyMapMode === 'divorce'">
-                    <template v-for="(initK) in ['男方','女方','雙方']" :key="'line'+initK">
-                      <polyline v-if="familyActiveCourtBar.lawyerLines[initK]?.some(v => v !== null)" :points="familyActiveCourtBar.data.map((d, i) => { const rate = familyActiveCourtBar.lawyerLines[initK]?.[i]; return rate != null ? (58 + i * 34 + 13) + ',' + (200 - (rate / 100) * 170) : '' }).filter(Boolean).join(' ')" fill="none" :stroke="INITIATOR_LINE_COLORS[initK]" stroke-width="2" stroke-linejoin="round" :stroke-dasharray="(familyActiveCourtBar.initiatorTotals?.[initK] || 0) < 10 ? '6 4' : 'none'"/>
+                    <template v-for="(initK, ki) in Object.keys(familyActiveCourtBar.lawyerLines || {})" :key="'line'+initK">
+                      <polyline v-if="familyActiveCourtBar.lawyerLines[initK]?.some(v => v !== null)" :points="familyActiveCourtBar.data.map((d, i) => { const rate = familyActiveCourtBar.lawyerLines[initK]?.[i]; return rate != null ? (58 + i * 34 + 13) + ',' + (200 - (rate / 100) * 170) : '' }).filter(Boolean).join(' ')" fill="none" :stroke="initColor(initK, ki)" stroke-width="2" stroke-linejoin="round" :stroke-dasharray="(familyActiveCourtBar.initiatorTotals?.[initK] || 0) < 10 ? '6 4' : 'none'"/>
                       <template v-for="(d, di) in familyActiveCourtBar.data" :key="'dot'+initK+di">
-                        <circle v-if="familyActiveCourtBar.lawyerLines[initK]?.[di] != null" :cx="58 + di * 34 + 13" :cy="200 - (familyActiveCourtBar.lawyerLines[initK][di] / 100) * 170" r="3" :fill="INITIATOR_LINE_COLORS[initK]" stroke="#fff" stroke-width="1">
+                        <circle v-if="familyActiveCourtBar.lawyerLines[initK]?.[di] != null" :cx="58 + di * 34 + 13" :cy="200 - (familyActiveCourtBar.lawyerLines[initK][di] / 100) * 170" r="3" :fill="initColor(initK, ki)" stroke="#fff" stroke-width="1">
                           <title>{{ d.abbr }} {{ initK }}律師代理率：{{ familyActiveCourtBar.lawyerLines[initK][di] }}%</title>
                         </circle>
                       </template>
@@ -745,7 +751,7 @@ const familyActiveBarSub = computed(() => familyMapMode.value === 'inherit' ? '�
               <div class="legend-row">
                 <div class="legend-item"><span class="legend-dot" :style="{ background: FAMILY_BAR_COLORS[0] }"></span>案件數</div>
                 <template v-if="familyMapMode === 'divorce'">
-                  <div v-for="k in ['男方','女方','雙方']" :key="k" class="legend-item"><span style="width:16px;height:3px;display:inline-block;border-radius:2px" :style="{ background: INITIATOR_LINE_COLORS[k], borderTop: (familyActiveCourtBar.initiatorTotals?.[k] || 0) < 10 ? '2px dashed ' + INITIATOR_LINE_COLORS[k] : 'none', height: (familyActiveCourtBar.initiatorTotals?.[k] || 0) < 10 ? '0' : '3px' }"></span>{{ k }}代理率 (n={{ familyActiveCourtBar.initiatorTotals?.[k] || 0 }})</div>
+                  <div v-for="(k, ki) in Object.keys(familyActiveCourtBar.lawyerLines || {})" :key="k" class="legend-item"><span style="width:16px;height:3px;display:inline-block;border-radius:2px" :style="{ background: initColor(k, ki), borderTop: (familyActiveCourtBar.initiatorTotals?.[k] || 0) < 10 ? '2px dashed ' + initColor(k, ki) : 'none', height: (familyActiveCourtBar.initiatorTotals?.[k] || 0) < 10 ? '0' : '3px' }"></span>{{ k }}代理率 (n={{ familyActiveCourtBar.initiatorTotals?.[k] || 0 }})</div>
                 </template>
                 <template v-else>
                   <div class="legend-item"><span style="width:16px;height:3px;background:#059669;display:inline-block;border-radius:2px"></span>律師代理率（%）</div>
@@ -856,9 +862,9 @@ const familyActiveBarSub = computed(() => familyMapMode.value === 'inherit' ? '�
 <style scoped>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 .dashboard { display: flex; min-height: 100vh; background: #f8fafc; font-family: 'DM Sans','Noto Sans TC',sans-serif; color: #111827; overflow-x: hidden; }
-.sidebar-tab { width: 28px; min-width: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border-right: 1px solid #d1d5db; transition: all 0.2s; z-index: 10; writing-mode: vertical-rl; font-size: 12px; font-weight: 600; user-select: none; letter-spacing: 3px; background: #1e40af; color: #fff; }
+.sidebar-tab { width: 28px; min-width: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border-right: 1px solid #d1d5db; transition: all 0.2s; z-index: 10; writing-mode: vertical-rl; font-size: 12px; font-weight: 600; user-select: none; letter-spacing: 3px; background: #1e40af; color: #fff; position: sticky; top: 0; height: 100vh; align-self: flex-start; }
 .sidebar-tab.open { background: #f1f5f9; color: #64748b; }
-.sidebar { overflow: hidden; transition: all 0.3s ease; border-right: 1px solid #e5e7eb; background: #fff; flex-shrink: 0; }
+.sidebar { overflow: hidden; transition: all 0.3s ease; border-right: 1px solid #e5e7eb; background: #fff; flex-shrink: 0; position: sticky; top: 0; height: 100vh; align-self: flex-start; }
 .sidebar-inner { width: 320px; height: 100vh; display: flex; flex-direction: column; }
 .sidebar-header { padding: 14px 14px 12px; border-bottom: 1px solid #e5e7eb; flex-shrink: 0; background: #fff; z-index: 5; box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
 .btn-sm { padding: 3px 10px; border-radius: 999px; border: 1px solid #d1d5db; background: #f9fafb; color: #4b5563; font-size: 10px; cursor: pointer; font-family: inherit; }
@@ -915,7 +921,11 @@ const familyActiveBarSub = computed(() => familyMapMode.value === 'inherit' ? '�
 .tab-count { font-weight: 400; opacity: 0.7; font-size: 10px; }
 .type-tab.active .tab-count { opacity: 0.85; }
 .filter-summary { font-size: 13px; color: #4b5563; margin-bottom: 12px; padding: 8px 12px; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; line-height: 1.5; }
-.loading-overlay { padding: 40px; text-align: center; color: #6b7280; font-size: 16px; }
+.loading-overlay { padding: 40px; text-align: center; color: #6b7280; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+.spinner { width: 18px; height: 18px; border: 3px solid #cbd5e1; border-top-color: #2563eb; border-radius: 50%; display: inline-block; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+/* 載入中：游標顯示轉圈，避免看起來像頁面當掉 */
+.dashboard.is-loading, .dashboard.is-loading * { cursor: progress !important; }
 .error-bar { padding: 10px 14px; margin-bottom: 12px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; color: #dc2626; font-size: 12px; }
 .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin-bottom: 16px; }
 .stat-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px 14px; position: relative; overflow: hidden; }
