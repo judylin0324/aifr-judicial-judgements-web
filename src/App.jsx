@@ -507,7 +507,7 @@ export default function App() {
           <div className="footer-inner">
             <span className="footer-contact">
               <div>聯絡我們：aifr.general@gmail.com</div>
-              <div>意見回饋：<a href="https://shorturl.at/W9rDw" target="_blank" rel="noreferrer">https://shorturl.at/W9rDw</a></div>
+              <div>意見回饋：<a href="https://forms.gle/iSS39HZGdT3x6NS67" target="_blank" rel="noreferrer">填寫使用回饋問卷</a></div>
             </span>
             <span className="footer-copy">&copy;copyright Artificial Intelligence for Fundamental Research (AIFR) Group</span>
             <div className="footer-logos">
@@ -839,7 +839,7 @@ function ChartCard({ ch, charts, vSvg, familyMapMode, setFamilyMapMode, familyAc
 function DualAxisSvg({ svgData }) {
   return (
     <div style={{ width: '100%', overflowX: 'auto' }}>
-      <svg width="100%" viewBox={`0 0 ${svgData.W} ${svgData.H}`} preserveAspectRatio="xMinYMin meet">
+      <svg width="100%" viewBox={`0 0 ${svgData.W} ${svgData.H}`} preserveAspectRatio="xMidYMin meet" style={{ maxWidth: `${svgData.W}px`, display: 'block', margin: '0 auto' }}>
         {svgData.yTicks.map((t, ti) => (
           <g key={'yt' + ti}><line x1={svgData.LM} x2={svgData.W - svgData.RM} y1={svgData.yS(t)} y2={svgData.yS(t)} stroke="#e5e7eb" strokeDasharray="3 3" /><text x={svgData.LM - 8} y={svgData.yS(t) + 4} textAnchor="end" fontSize="10" fill="#6b7280">{t.toLocaleString()}</text></g>
         ))}
