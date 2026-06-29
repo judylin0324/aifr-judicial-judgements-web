@@ -507,7 +507,7 @@ export default function App() {
           <div className="footer-inner">
             <span className="footer-contact">
               <div>聯絡我們：aifr.general@gmail.com</div>
-              <div>意見回饋：<a href="https://forms.gle/iSS39HZGdT3x6NS67" target="_blank" rel="noreferrer">填寫使用回饋問卷</a></div>
+              <div>意見回饋：<a href="https://forms.gle/iSS39HZGdT3x6NS67" target="_blank" rel="noreferrer">https://forms.gle/iSS39HZGdT3x6NS67</a></div>
             </span>
             <span className="footer-copy">&copy;copyright Artificial Intelligence for Fundamental Research (AIFR) Group</span>
             <div className="footer-logos">
