@@ -69,7 +69,7 @@ function simpleBarTicks(data, mult, target = 4) {
 }
 
 // ═══════════ Filter definitions ═══════════
-const LOCKED_OR_KEYS = new Set(['cls', 'court', 'case_char', 'ending', 'procedure', 'probation', 'cause', 'lawyer', 'initiator', 'divorce_reason', 'action', 'subject', 'lawsuit_type', 'amount_tier', 'national_comp', 'agency_type', 'comp_type', 'public_type', 'election_type'])
+const LOCKED_OR_KEYS = new Set(['cls', 'court', 'case_char', 'ending', 'procedure', 'probation', 'cause', 'lawyer', 'initiator', 'divorce_reason', 'action', 'subject', 'suit_type', 'lawsuit_type', 'amount_tier', 'national_comp', 'agency_type', 'comp_type', 'public_type', 'election_type'])
 function getFilterDefs(caseType) {
   if (caseType === 'criminal_litigation') return [
     { title: '案件資訊', color: 'blue', items: [{ key: 'cls', label: '案件分類', optsKey: 'classes' }, { key: 'court', label: '法院別', optsKey: 'courts' }, { key: 'case_char', label: '案號字別', optsKey: 'caseChars' }, { key: 'ending', label: '全案終結情形', optsKey: 'endings' }] },
@@ -77,7 +77,7 @@ function getFilterDefs(caseType) {
     { title: '罪刑資訊', color: 'green', items: [{ key: 'article', label: '定罪法條', optsKey: 'articles', canToggle: true }, { key: 'crime_flags', label: '罪犯類型', optsKey: 'crimeFlags', canToggle: true }, { key: 'aggravation', label: '量刑加重事由', optsKey: 'aggr', canToggle: true }, { key: 'mitigation', label: '量刑減輕事由', optsKey: 'miti', canToggle: true }, { key: 'result', label: '罪名裁判結果', optsKey: 'results', canToggle: true }] },
   ]
   if (caseType === 'civil_litigation') return [
-    { title: '案件資訊', color: 'blue', items: [{ key: 'court', label: '法院別', optsKey: 'courts' }, { key: 'case_char', label: '案號字別', optsKey: 'caseChars' }, { key: 'ending', label: '終結情形', optsKey: 'endings' }, { key: 'action', label: '案由-行為', optsKey: 'actions' }, { key: 'subject', label: '案由-標的', optsKey: 'subjects' }, { key: 'lawsuit_type', label: '訴訟標的類別', optsKey: 'lawsuitTypes' }, { key: 'amount_tier', label: '金額級距', optsKey: 'amountTiers' }] },
+    { title: '案件資訊', color: 'blue', items: [{ key: 'court', label: '法院別', optsKey: 'courts' }, { key: 'case_char', label: '案號字別', optsKey: 'caseChars' }, { key: 'ending', label: '終結情形', optsKey: 'endings' }, { key: 'suit_type', label: '案由（訴訟種類）', optsKey: 'suitTypes' }, { key: 'lawsuit_type', label: '訴訟標的類別', optsKey: 'lawsuitTypes' }, { key: 'amount_tier', label: '金額級距', optsKey: 'amountTiers' }] },
     { title: '當事人資訊', color: 'orange', items: [{ key: 'lawyer', label: '律師代理情形', optsKey: 'lawyers' }, { key: 'national_comp', label: '是否國賠事件', optsKey: 'nationalComp' }, { key: 'agency_type', label: '被請求機關類別', optsKey: 'agencyTypes' }, { key: 'comp_type', label: '賠償類別', optsKey: 'compTypes' }, { key: 'public_type', label: '公職類別', optsKey: 'publicTypes' }, { key: 'election_type', label: '選舉類別', optsKey: 'electionTypes' }] },
   ]
   if (caseType === 'family_litigation') return [
@@ -310,7 +310,7 @@ export default function App() {
     if (ct === 'civil_litigation') return [
       { type: 'lawyerRateMap', key: 'lawyerRateMap', title: '各法院律師代理率分布', sub: '各地區法院案件之其律師代理率（非全體法院占比）' },
       { type: 'lawyerEndingAndAmount', key: 'lawyerEndingBar', title: '律師代理×終結情形', sub: '律師代理之終結情形與其占比' },
-      { type: 'heatmapWide', key: 'actionSubjectHeatmap', title: '案由分布', sub: '案由之行為與標的關鍵字之交叉分析' },
+      { type: 'causeBar', key: 'causeSuitDist', title: '案由分布（訴訟種類）', sub: '依司法院統計處「地方法院民事第一審終結事件訴訟種類」分類' },
     ]
     if (ct === 'family_litigation') return [
       { type: 'dualAxisBar', key: 'lawyerCauseBar', title: '律師代理×案由', sub: '律師代理情形之案件分布' },
@@ -542,6 +542,24 @@ function ChartCard({ ch, charts, vSvg, familyMapMode, setFamilyMapMode, familyAc
             </table>
           </div>
         )}
+      </div>
+    )
+  }
+
+  if (ch.type === 'causeBar') {
+    const list = cd || []
+    const max = list[0]?.count || 1
+    return (
+      <div className="chart-card" style={{ gridColumn: '1 / -1' }}>
+        <div className="chart-title">{ch.title}</div>
+        <div className="chart-sub">{ch.sub}</div>
+        {!list.length ? <div className="no-data">無資料</div> : list.map((item, idx) => (
+          <div key={item.name} className="bar-item">
+            <div className="bar-label" style={{ minWidth: '150px' }}>{item.name}</div>
+            <div className="bar-track"><div className="bar-fill" style={{ width: Math.max(2, item.count / max * 100) + '%', background: PALETTE[idx % PALETTE.length] }}></div></div>
+            <div className="bar-count">{item.count.toLocaleString()}</div>
+          </div>
+        ))}
       </div>
     )
   }
