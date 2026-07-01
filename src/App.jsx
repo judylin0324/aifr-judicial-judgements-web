@@ -186,6 +186,7 @@ export default function App() {
   const PG = 10
   const [expandedJid, setExpandedJid] = useState(null)
   const [familyMapMode, setFamilyMapMode] = useState('divorce')
+  const [showDocs, setShowDocs] = useState(false)
 
   // ── filter helpers ──
   const getSearch = (key) => searchStates[key] || ''
@@ -351,23 +352,27 @@ export default function App() {
       {/* Sidebar */}
       <div className="sidebar" style={{ width: sideOpen ? '320px' : '0', minWidth: sideOpen ? '320px' : '0' }}>
         <div className="sidebar-inner">
+          {/* 第一層：案件類型 */}
           <div className="sidebar-header">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '10px' }}>
-              <h2 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: '#111827' }}>篩選條件</h2>
-              <button onClick={() => setShowFilterTip(t => !t)} className="btn-sm">{showFilterTip ? '收合' : '？ 說明'}</button>
-            </div>
-            {showFilterTip && (
-              <div className="filter-tip"><strong>篩選邏輯說明</strong><br />・「+」聯集：符合任一條件即匹配<br />・「&amp;」交集：須同時符合所有條件<br />・帶有<span className="locked-star">*</span>的篩選項僅支援聯集(+)</div>
-            )}
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={handleSubmit} className="btn-submit">送出篩選</button>
-              <button onClick={handleReset} className="btn-reset">重置</button>
+            <div style={{ fontSize: '12px', fontWeight: 700, color: '#6b7280', marginBottom: '8px', letterSpacing: '0.5px' }}>案件類型</div>
+            <div className="side-type-tabs">
+              {CATEGORIES.map(cat => availableTypes.filter(at => CASE_TYPES[at.key]?.category === cat.key).map(t => (
+                <button key={t.key} onClick={() => switchType(t.key)} className={`type-tab tab-${cat.key}` + (activeType === t.key ? ' active' : '')}>{CASE_TYPES[t.key]?.icon} {CASE_TYPES[t.key]?.label} <span className="tab-count">({t.rowCount?.toLocaleString()})</span></button>
+              )))}
             </div>
           </div>
+          {/* 第二層：篩選條件 */}
           <div className="sidebar-scroll">
+            <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827', marginBottom: '8px' }}>篩選條件</div>
             {filterOptions.ym?.length > 0 && (
               <div className="filter-group">
-                <div className="filter-label">終結年月（區間）</div>
+                <div className="filter-label-row">
+                  <span className="filter-label">終結年月（區間）</span>
+                  <button onClick={() => setShowFilterTip(t => !t)} className="btn-sm">{showFilterTip ? '收合' : '？ 說明'}</button>
+                </div>
+                {showFilterTip && (
+                  <div className="filter-tip"><strong>篩選邏輯說明</strong><br />・「+」聯集：符合任一條件即匹配<br />・「&amp;」交集：須同時符合所有條件<br />・帶有<span className="locked-star">*</span>的篩選項僅支援聯集(+)</div>
+                )}
                 <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                   <select value={filters.ym_min || ''} onChange={(e) => setFilter('ym_min', e.target.value)} className="sel"><option value="">最早</option>{filterOptions.ym.map(y => <option key={y} value={y}>{y.replace('/', '年') + '月'}</option>)}</select>
                   <span style={{ color: '#9ca3af', fontSize: '11px' }}>～</span>
@@ -412,20 +417,24 @@ export default function App() {
               </div>
             ))}
           </div>
+          {/* 第三層：送出／重置(固定置尾) */}
+          <div className="sidebar-footer">
+            <button onClick={handleSubmit} className="btn-submit">送出篩選</button>
+            <button onClick={handleReset} className="btn-reset">重置</button>
+          </div>
         </div>
       </div>
 
       {/* Main */}
       <div className={'main-area bg-' + activeCat}>
         <div className="main-header">
-          <h1 style={{ fontSize: '22px', fontWeight: 700, margin: 0, color: '#0f172a' }}>裁判書量化實證研究平台－民國113-114年</h1>
-          <button onClick={handleDL} disabled={!dashData?.judgments?.items?.length} className="btn-dl">下載判決清單</button>
+          <h1 style={{ fontSize: '22px', fontWeight: 700, margin: 0, color: '#0f172a' }}>裁判書量化研究資料庫(測試版)－資料範圍113-114年地院判決</h1>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button onClick={() => setShowDocs(d => !d)} className="btn-docs">{showDocs ? '← 返回資料' : '📄 技術說明文件'}</button>
+            <button onClick={handleDL} disabled={!dashData?.judgments?.items?.length} className="btn-dl">下載判決清單</button>
+          </div>
         </div>
-        <div className="type-tabs">
-          {CATEGORIES.map(cat => availableTypes.filter(at => CASE_TYPES[at.key]?.category === cat.key).map(t => (
-            <button key={t.key} onClick={() => switchType(t.key)} className={`type-tab tab-${cat.key}` + (activeType === t.key ? ' active' : '')}>{CASE_TYPES[t.key]?.icon} {CASE_TYPES[t.key]?.label} <span className="tab-count">({t.rowCount?.toLocaleString()})</span></button>
-          )))}
-        </div>
+        {showDocs ? <DocsPage /> : (<>
         <div className="filter-summary">{filterSummary}</div>
         {loading && <div className="loading-overlay"><span className="spinner"></span>載入中…</div>}
         {error && <div className="error-bar">{error}</div>}
@@ -502,6 +511,7 @@ export default function App() {
             ))}
           </div>
         )}
+        </>)}
 
         <footer className="site-footer">
           <div className="footer-inner">
@@ -857,6 +867,92 @@ function DualAxisSvg({ svgData }) {
           </g>
         ))}
       </svg>
+    </div>
+  )
+}
+
+// ═══════════ 資料處理說明頁 ═══════════
+function DocsSection({ title, children }) {
+  return (
+    <section style={{ marginBottom: '26px' }}>
+      <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#1e40af', borderBottom: '2px solid #dbeafe', paddingBottom: '6px', marginBottom: '12px' }}>{title}</h2>
+      {children}
+    </section>
+  )
+}
+const DP_TH = { textAlign: 'left', padding: '6px 10px', background: '#f1f5f9', fontWeight: 700, fontSize: '13px', color: '#334155', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }
+const DP_TD = { padding: '6px 10px', fontSize: '13px', color: '#374151', borderBottom: '1px solid #f1f5f9', verticalAlign: 'top', lineHeight: 1.7 }
+const DP_P = { fontSize: '14px', lineHeight: 1.9, color: '#374151', margin: '0 0 10px' }
+const DP_TDC = { ...DP_TD, whiteSpace: 'nowrap', fontWeight: 700, color: '#0f172a', background: '#f8fafc', textAlign: 'center', verticalAlign: 'middle' }
+function DocsPage() {
+  return (
+    <div className="docs-page">
+      <p style={{ ...DP_P, color: '#64748b' }}>本平台以司法院資料開放平臺「司法院及所屬各級法院之終結案件資料」為基礎，將原始資料轉檔整理、分類並彙總後，以圖表方式呈現，目的是提供法律實務工作者、法學研究者以量化的角度來看這些裁判書，以此瞭解法律是如何實際被運用。</p>
+      <p style={{ ...DP_P, color: '#64748b' }}>本文件說明有四：一、各篩選欄位分別來自原始資料或平台計算；二、每張圖表的判讀方式；三、網頁操作方式。</p>
+
+      <DocsSection title="一、篩選欄位來源">
+        <p style={{ ...DP_P, fontWeight: 700, color: '#0f172a' }}>(A) 直接來自原始「終結案件資料」的欄位</p>
+        <p style={{ ...DP_P, margin: '0 0 8px' }}>以下欄位為原始資料既有的登載內容，平台未做加工，僅供篩選：</p>
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '6px' }}>
+          <thead><tr><th style={DP_TH}>訴訟類別</th><th style={DP_TH}>欄位</th><th style={DP_TH}>簡要說明*</th></tr></thead>
+          <tbody>
+            <tr><td style={DP_TDC} rowSpan={5}>刑事／民事／家事</td><td style={DP_TD}>終結年月（區間）</td><td style={DP_TD}>目前僅涵蓋民國 113–114 年案件。</td></tr>
+            <tr><td style={DP_TD}>法院別</td><td style={DP_TD}>所有原始資料有涵蓋之承審法院。</td></tr>
+            <tr><td style={DP_TD}>案號字別</td><td style={DP_TD}>所有原始資料有涵蓋之案號字別。</td></tr>
+            <tr><td style={DP_TD}>全案終結情形</td><td style={DP_TD}>所有原始資料有涵蓋之全案終結方式（判決、駁回等）。</td></tr>
+            <tr><td style={DP_TD}>辯護及代理／律師代理情形</td><td style={DP_TD}>所有原始資料有涵蓋之辯護及代理／律師代理情形。</td></tr>
+            <tr><td style={DP_TDC}>刑事</td><td style={DP_TD}>案件分類、辯護及代理、保安處分、裁判程序、沒收、宣告緩刑、家暴相關等</td><td style={DP_TD}>刑事訴訟被告資訊相關欄位，將原始資料多欄位合併為一欄位做篩選。</td></tr>
+            <tr><td style={DP_TDC}>刑事</td><td style={DP_TD}>定罪法條、罪犯類型、加重／減輕事由、罪名裁判結果</td><td style={DP_TD}>刑事訴訟罪刑相關欄位，將原始資料多欄位合併為一欄做篩選。定罪法條第幾條以法條符號（§）代表。</td></tr>
+            <tr><td style={DP_TDC}>民事</td><td style={DP_TD}>訴訟標的類別、是否國賠、被請求機關類別、賠償類別、公職／選舉類別</td><td style={DP_TD}>民事案件原始資訊欄位。</td></tr>
+            <tr><td style={DP_TDC}>家事</td><td style={DP_TD}>主動離婚者、離婚原因</td><td style={DP_TD}>家事案件原始資訊欄位。</td></tr>
+          </tbody>
+        </table>
+        <p style={{ ...DP_P, fontSize: '12px', color: '#94a3b8', margin: '0 0 4px' }}>*詳細欄位說明請參閱司法院資料開放平臺－司法院及所屬各級法院之終結案件資料與欄位說明。</p>
+        <p style={{ ...DP_P, fontWeight: 700, color: '#0f172a', marginTop: '14px' }}>(B) 由平台計算／彙總後產生的欄位</p>
+        <p style={{ ...DP_P, margin: '0 0 8px' }}>以下欄位為平台依原始資料再計算、分類或彙總而成：</p>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead><tr><th style={DP_TH}>訴訟類別</th><th style={DP_TH}>欄位（適用範圍）</th><th style={DP_TH}>如何產生／計算</th></tr></thead>
+          <tbody>
+            <tr><td style={DP_TDC}>刑事</td><td style={DP_TD}>案件分類</td><td style={DP_TD}>根據原始資料計算每一裁判書中的被告人數、犯罪筆數後做分類。</td></tr>
+            <tr><td style={DP_TDC}>民事</td><td style={DP_TD}>案由（訴訟種類）</td><td style={DP_TD}>將原始案由文字以關鍵字對應到司法院統計處「地方法院民事第一審終結事件訴訟種類」（損害賠償—侵權行為／債務不履行、不當得利、返還借款、買賣、所有權、租賃、抵押權、票據、承攬、僱傭及勞動、保險、國家賠償、公司事件等）；無法歸類者列為「其他」。</td></tr>
+            <tr><td style={DP_TDC}>民事</td><td style={DP_TD}>訴訟標的金額級距</td><td style={DP_TD}>由原始訴訟標的金額分為 未滿10萬／10–50萬／50–100萬／100–500萬／500萬–1000萬／1000萬以上。</td></tr>
+            <tr><td style={DP_TDC}>民事</td><td style={DP_TD}>終結情形</td><td style={DP_TD}>將原始「勝訴／敗訴」一律改以「原告」角度標示，方便判讀結果。</td></tr>
+          </tbody>
+        </table>
+      </DocsSection>
+
+      <DocsSection title="二、圖表判讀方式">
+        <p style={{ ...DP_P, fontWeight: 700, color: '#2563eb' }}>刑事訴訟</p>
+        <ul style={{ ...DP_P, paddingLeft: '20px' }}>
+          <li>案件分類 × 法院別：各法院不同案件分類的件數分布，看各法院受理案件的結構。</li>
+          <li>刑期分布（小提琴圖）：橫向寬度代表該刑期附近案件的密度，愈寬表示落在該區間的案件愈多；可看刑度集中的區段與離群值。</li>
+          <li>量刑結構堆疊圖：依判決是否含加重、減輕法條，組合為：無加重無減輕／僅有加重法條／僅有減輕法條／有加重有減輕。</li>
+        </ul>
+        <p style={{ ...DP_P, fontWeight: 700, color: '#059669' }}>民事訴訟</p>
+        <ul style={{ ...DP_P, paddingLeft: '20px' }}>
+          <li>各法院律師代理率（地圖）：各法院（或各分類）中「非『雙方無律師』」案件所占比率，氣泡顏色代表該法院的律師代理率（0–100%），可比較地區差異。</li>
+          <li>律師代理 × 終結情形：比較有無律師代理下，各種終結結果的比例差異。</li>
+          <li>標的金額 × 律師代理：不同金額級距下的律師代理情形，觀察金額高低與是否委任律師的關係。</li>
+          <li>案由（訴訟種類）分布：依司法院統計處分類，案件數由多到少排列。</li>
+        </ul>
+        <p style={{ ...DP_P, fontWeight: 700, color: '#d97706' }}>家事訴訟</p>
+        <ul style={{ ...DP_P, paddingLeft: '20px' }}>
+          <li>律師代理 × 終結情形：比較有無律師代理下，各種終結結果的比例差異。</li>
+          <li>離婚案件法院分布：各法院離婚案件件數。</li>
+          <li>主動方（原告）律師代理率：主動提起離婚一方委任律師的比率。以主動離婚者（＝原告）為分母，計「僅原告有律師＋雙方有律師」÷ 該分類主動提起件數（排除僅被告有律師者）。</li>
+        </ul>
+      </DocsSection>
+
+      <DocsSection title="三、網頁使用方式">
+        <ol style={{ ...DP_P, paddingLeft: '20px' }}>
+          <li>在左側第一層「案件類型」選擇 刑事／民事／家事，右側圖表與第二層篩選條件會隨之切換。</li>
+          <li>在左側第二層做條件篩選，其中各欄位條件為交集或聯集亦可自行點選。</li>
+          <li>設定完成後，點左側最下方（第三層）的「送出篩選」套用即可在右方看到該篩選條件後的圖表及判決書列表；若點選「重置」可清除全部條件。</li>
+          <li>右上角「下載判決清單」可依目前篩選條件匯出符合案件的清單。</li>
+          <li>右上角「技術說明文件」即本說明頁，可隨時查閱欄位定義與圖表判讀。</li>
+          <li>如發現分類或數據疑義，歡迎透過頁尾的意見回饋問卷回報。</li>
+        </ol>
+      </DocsSection>
     </div>
   )
 }

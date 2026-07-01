@@ -125,3 +125,13 @@
 .footer-logos { display: flex; align-items: center; gap: 12px; }
 .footer-logos img { object-fit: contain; }
 @media (max-width: 768px) { .footer-inner { flex-direction: column; text-align: center; } }
+
+/* 三層側欄:第一層案件類型、第三層送出/重置固定置尾 */
+.side-type-tabs { display: flex; flex-direction: column; gap: 6px; }
+.side-type-tabs .type-tab { width: 100%; text-align: left; font-size: 13px; padding: 8px 12px; }
+.sidebar-footer { flex-shrink: 0; padding: 10px 14px; border-top: 1px solid #e5e7eb; background: #fff; display: flex; gap: 8px; box-shadow: 0 -2px 4px rgba(0,0,0,0.03); }
+/* 技術說明文件按鈕與頁面 */
+.btn-docs { padding: 8px 14px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; color: #334155; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; white-space: nowrap; }
+.btn-docs:hover { background: #f1f5f9; }
+.docs-page { max-width: 900px; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px 28px; margin-bottom: 16px; }
+.docs-page table td, .docs-page table th { border: 1px solid #eef2f7; }
